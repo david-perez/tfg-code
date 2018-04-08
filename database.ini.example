@@ -1,0 +1,6 @@
+[postgresql]
+host=localhost
+port=5555
+database=mimic
+user=postgres
+password=secret
