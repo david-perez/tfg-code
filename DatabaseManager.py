@@ -1,3 +1,4 @@
+import os
 from configparser import ConfigParser
 from psycopg2.extensions import AsIs
 
@@ -69,6 +70,7 @@ class DatabaseManager:
         table_name = 'bw_'
         if test_set:
             table_name += 'test_'
+        vocabulary_filename, _ = os.path.splitext(vocabulary_filename)  # Remove extension.
         table_name += vocabulary_filename.replace('.', '')
         cur.execute("""
             CREATE TABLE %s (
