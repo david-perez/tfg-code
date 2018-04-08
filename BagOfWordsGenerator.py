@@ -54,8 +54,6 @@ class BagOfWordsGenerator:
         bag_of_words_data = bag_of_words.data.tolist()
         ret.append((subject_id, how_many_notes, bag_of_words_col_ind, bag_of_words_data))
 
-        self.__log.info("Bag of words vectors created")
-
         return ret
 
 
