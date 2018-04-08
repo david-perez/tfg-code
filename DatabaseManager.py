@@ -44,12 +44,10 @@ class DatabaseManager:
 
         return conn
 
-    def get_corpus(self, toy_set=None, top10_labels=True, top100_labels=False, test_set=False):
-        assert(top10_labels ^ top100_labels)
-
+    def get_corpus(self, toy_set=None, top100_labels=False, test_set=False):
         cur = self.__conn.cursor()
 
-        table_name = ('test_set_' if test_set else 'training_set_') + ('top10_labels' if top10_labels else 'top100_labels');
+        table_name = ('test_set_' if test_set else 'training_set_') + ('top100_labels' if top100_labels else 'top10_labels');
         sql_select = 'SELECT * FROM %s ORDER BY subject_id ASC, r ASC'
         if toy_set is not None:
             sql_select += ' LIMIT %s'
