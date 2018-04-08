@@ -1,5 +1,6 @@
 import pickle
 from datetime import datetime
+from time import gmtime, strftime
 
 from scipy.sparse import csr_matrix
 from sklearn.feature_extraction.text import CountVectorizer
@@ -63,7 +64,8 @@ def load_vocabulary(filename):
 
 
 if __name__ == '__main__':
-    root_logger = logging_utils.build_logger('bag_of_words_generator_{}.log'.format(str(datetime.now())))
+    time = strftime("%Y%m%d%H%M%S", gmtime())
+    root_logger = logging_utils.build_logger('{}_bag_of_words_generator.log'.format(time))
     logger = root_logger.getLogger('bag_of_words_generator')
     test_set = True
     toy_set = 5000 #  700

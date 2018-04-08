@@ -87,9 +87,9 @@ def get_filename_vocabulary(time, toy_set=None, top10_labels=True, top100_labels
 
 if __name__ == '__main__':
     time = strftime("%Y%m%d%H%M%S", gmtime())
-    root_logger = logging_utils.build_logger('vocabulary_generator_{}.log'.format(time))
+    root_logger = logging_utils.build_logger('{}_vocabulary_generator.log'.format(time))
     logger = root_logger.getLogger('vocabulary_generator')
-    toy_set = 5000 #  700
+    toy_set = 700
     top10_labels = True
     top100_labels = False
 

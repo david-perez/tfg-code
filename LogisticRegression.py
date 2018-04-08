@@ -105,7 +105,7 @@ def calculate_metrics(predicted, actual):
 
 if __name__ == '__main__':
     time = strftime("%Y%m%d%H%M%S", gmtime())
-    root_logger = logging_utils.build_logger('logistic_regression_{}.log'.format(str(time)))
+    root_logger = logging_utils.build_logger('{}_logistic_regression.log'.format(time))
     logger = root_logger.getLogger('logistic_regression')
     top10_labels = True
     top100_labels = False
