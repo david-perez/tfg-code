@@ -1,16 +1,19 @@
+from datetime import datetime
+from time import strftime, gmtime
+
 import numpy as np
 import pickle
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 
+import logging_utils
 from DatabaseManager import DatabaseManager
 from SpacyAnalyzer import SpacyAnalyzer
-from timing import log
 
 
 class VocabularyGenerator:
-    def __init__(self, corpus, filename, tf_idf_cutoff=40000, word_appearance_in_documents_min_threshold=3):
+    def __init__(self, corpus, log, tf_idf_cutoff=40000, word_appearance_in_documents_min_threshold=3):
         self.__corpus = corpus
-        self.__filename = filename
+        self.__log = log
         self.__tf_idf_cutoff=tf_idf_cutoff
 
         self.__analyzer = SpacyAnalyzer()
@@ -21,7 +24,7 @@ class VocabularyGenerator:
     def __build_vocabulary_word_appearance_in_documents(self):
         vectorizer = CountVectorizer(analyzer=self.__analyzer.analyze)
         X = vectorizer.fit_transform(self.__corpus)
-        log("Term-document count matrix computed")
+        self.__log.info("Term-document count matrix computed")
 
         appearance_matrix = X > 0
         sum_columns = np.asarray(appearance_matrix.sum(axis=0))[0]
@@ -37,7 +40,7 @@ class VocabularyGenerator:
         # Recalculate the term-document matrix by TF-IDF, this time using only the built vocabulary.
         vectorizer = TfidfVectorizer(analyzer=self.__analyzer.analyze, vocabulary=vocabulary)
         X = vectorizer.fit_transform(self.__corpus)
-        log('Term-document TF-IDF matrix computed')
+        self.__log.info('Term-document TF-IDF matrix computed')
 
         sum_columns = np.asarray(np.sum(X, axis=0))[0]
 
@@ -47,33 +50,58 @@ class VocabularyGenerator:
         feature_names = vectorizer.get_feature_names()
         vocabulary = [feature_names[idx] for idx, _ in
                       sorted(enumerate(sum_columns), key=lambda t: t[1], reverse=True)[:self.__tf_idf_cutoff]]
-        log('Final vocabulary calculated')
+        self.__log.info('Final vocabulary calculated')
 
         return vocabulary
-
-    def __write_vocabulary_to_file(self, vocabulary):
-        with open(self.__filename, 'wb') as fp:
-            pickle.dump(vocabulary, fp)
-        log('Vocabulary written to {}'.format(self.__filename))
 
     def build_vocabulary(self):
         vocabulary = self.__build_vocabulary_word_appearance_in_documents()
-        print('There are {} words that appear in at least {} documents.'
+        self.__log.info('There are {} words that appear in at least {} documents.'
               .format(len(vocabulary), self.__word_appearance_in_documents_min_threshold))
 
         vocabulary = self.__build_vocabulary_tf_idf_scores(vocabulary)
-        print('The first {} terms (ordered by TF-IDF scores) that appear in at least {} documents of the training set are:'
+        self.__log.info('The first {} terms (ordered by TF-IDF scores) that appear in at least {} documents of the training set are:'
             .format(self.__tf_idf_cutoff, self.__word_appearance_in_documents_min_threshold))
-        print(vocabulary)
-
-        self.__write_vocabulary_to_file(vocabulary)
+        self.__log.info(vocabulary)
 
         return vocabulary
 
 
-if __name__ == '__main__':
-    db = DatabaseManager()
-    _, corpus = db.get_corpus_training_set(toy_set=None, top10_labels=True)
+def write_vocabulary_to_file(vocabulary, filename):
+    with open(filename, 'wb') as fp:
+        pickle.dump(vocabulary, fp)
 
-    vocabulary_generator = VocabularyGenerator(corpus, 'vocabulary.p')
+
+def get_filename_vocabulary(time, toy_set=None, top10_labels=True, top100_labels=False):
+    assert(top10_labels ^ top100_labels)
+
+    filename = 'serialized_vocabularies/vocabulary_train'
+    if toy_set:
+        filename += '_toy'
+    filename += '_top10_labels_' if top10_labels else '_top100_labels_'
+    filename += time
+    filename += '.p'
+
+    return filename
+
+
+if __name__ == '__main__':
+    time = strftime("%Y%m%d%H%M%S", gmtime())
+    root_logger = logging_utils.build_logger('vocabulary_generator_{}.log'.format(time))
+    logger = root_logger.getLogger('vocabulary_generator')
+    toy_set = 5000 #  700
+    top10_labels = True
+    top100_labels = False
+
+    logger.info('Program start')
+    logger.info('Config: toy_set = %s, top10_labels = %s, top100_labels = %s', toy_set, top10_labels, top100_labels)
+
+    db = DatabaseManager()
+    _, corpus = db.get_corpus(toy_set=toy_set, top10_labels=top10_labels, top100_labels=top100_labels)
+
+    vocabulary_generator = VocabularyGenerator(corpus, logger)
     vocabulary = vocabulary_generator.build_vocabulary()
+
+    filename = get_filename_vocabulary(time, toy_set, top10_labels, top100_labels)
+    write_vocabulary_to_file(vocabulary, filename)
+    logger.info('Vocabulary written to {}'.format(filename))

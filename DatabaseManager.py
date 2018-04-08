@@ -1,4 +1,5 @@
 from configparser import ConfigParser
+from psycopg2.extensions import AsIs
 
 import pickle
 import psycopg2
@@ -43,18 +44,18 @@ class DatabaseManager:
 
         return conn
 
-    def get_corpus_training_set(self, toy_set=None, top10_labels=True, top100_labels=False):
+    def get_corpus(self, toy_set=None, top10_labels=True, top100_labels=False, test_set=False):
         assert(top10_labels ^ top100_labels)
 
         cur = self.__conn.cursor()
 
-        if top10_labels:
-            if toy_set is None:
-                cur.execute('SELECT * FROM training_set_top10_labels ORDER BY subject_id ASC, r ASC')
-            else:
-                cur.execute('SELECT * FROM training_set_top10_labels ORDER BY subject_id ASC, r ASC LIMIT %s', (toy_set,))
-        elif top100_labels:
-            pass
+        table_name = ('test_set_' if test_set else 'training_set_') + ('top10_labels' if top10_labels else 'top100_labels');
+        sql_select = 'SELECT * FROM %s ORDER BY subject_id ASC, r ASC'
+        if toy_set is not None:
+            sql_select += ' LIMIT %s'
+            cur.execute(sql_select, (AsIs(table_name), toy_set))
+        else:
+            cur.execute(sql_select, (AsIs(table_name),))
 
         subject_ids = []
         notes = []
@@ -64,23 +65,34 @@ class DatabaseManager:
 
         return subject_ids, notes
 
-    def insert_bag_of_words_vectors_training_set(self, bag_of_words_vectors, toy_set=None, top10_labels=True, top100_labels=False):
-        assert(top10_labels ^ top100_labels)
-
+    def insert_bag_of_words_vectors(self, bag_of_words_vectors, vocabulary_filename, test_set=False):
         cur = self.__conn.cursor()
 
-        if top10_labels:
-            for subject_id, how_many_notes, bag_of_words_col_ind, bag_of_words_data in bag_of_words_vectors:
-                cur.execute('INSERT INTO bag_of_words_training_set_top10_labels VALUES (%s, %s, %s, %s)',
-                            (subject_id, how_many_notes,
-                             psycopg2.Binary(pickle.dumps(bag_of_words_col_ind)),
-                             psycopg2.Binary(pickle.dumps(bag_of_words_data))))
-        elif top100_labels:
-            pass
+        table_name = 'bw_'
+        if test_set:
+            table_name += 'test_'
+        table_name += vocabulary_filename.replace('.', '')
+        cur.execute("""
+            CREATE TABLE %s (
+                subject_id INTEGER PRIMARY KEY NOT NULL,
+                how_many_notes INTEGER NOT NULL,
+                bag_of_words_binary_vector_col_ind BYTEA NOT NULL,
+                bag_of_words_binary_vector_data BYTEA NOT NULL
+            );
+        """, (AsIs(table_name),))
+        self.__conn.commit()
+
+        for subject_id, how_many_notes, bag_of_words_col_ind, bag_of_words_data in bag_of_words_vectors:
+            cur.execute('INSERT INTO %s VALUES (%s, %s, %s, %s)',
+                        (AsIs(table_name), subject_id, how_many_notes,
+                         psycopg2.Binary(pickle.dumps(bag_of_words_col_ind)),
+                         psycopg2.Binary(pickle.dumps(bag_of_words_data))))
 
         self.__conn.commit()
 
-    def get_icd9_codes(self, top10_labels=True, top100_labels=False, subject_id=None):
+        return table_name
+
+    def get_icd9_codes(self, top10_labels=True, top100_labels=False, subject_id=None, test_set=False):
         assert((top10_labels ^ top100_labels) or (subject_id is not None))
 
         cur = self.__conn.cursor()
@@ -91,8 +103,8 @@ class DatabaseManager:
             elif top100_labels:
                 pass
         else:
-            cur.execute("""SELECT icd9_code FROM training_set_top10_labels_patients_and_diagnoses WHERE subject_id = %s
-                        ORDER BY icd9_code ASC""", (subject_id,))
+            table_name = ('test_set' if test_set else 'training_set') + ('_top10_labels' if top10_labels else '_top100_labels') + '_patients_and_diagnoses'
+            cur.execute('SELECT icd9_code FROM %s WHERE subject_id = %s ORDER BY icd9_code ASC', (AsIs(table_name), subject_id,))
 
         return [row[0] for row in cur.fetchall()]
 
@@ -100,18 +112,8 @@ class DatabaseManager:
         if self.__conn is not None:
             self.__conn.close()
 
-    def get_bag_of_words_vectors_training_set(self, toy_set=None, top10_labels=True, top100_labels=False):
-        assert(top10_labels ^ top100_labels)
-
+    def get_bag_of_words_vectors(self, table_name):
         cur = self.__conn.cursor()
-
-        if top10_labels:
-            if toy_set is None:
-                cur.execute('SELECT * FROM bag_of_words_training_set_top10_labels ORDER BY subject_id ASC')
-            else:
-                cur.execute('SELECT * FROM bag_of_words_training_set_top10_labels ORDER BY subject_id ASC LIMIT %s',
-                            (toy_set,))
-        elif top100_labels:
-            pass
+        cur.execute('SELECT * FROM %s ORDER BY subject_id ASC', (AsIs(table_name),))
 
         return cur
