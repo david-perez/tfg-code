@@ -1,3 +1,4 @@
+import argparse
 from time import strftime, gmtime
 
 import numpy as np
@@ -13,7 +14,7 @@ from DatabaseManager import DatabaseManager
 from utils import get_icd9_codes_map
 
 
-def load_X_Y(table_name, top10_labels=True, top100_labels=False, test_set=False, n_features=None):
+def load_X_Y(table_name, top100_labels=False, test_set=False, n_features=None):
     """Return the sample matrix X and a list of Y vectors for the bag of words vectors contained in :param table_name.
 
     The bag of words vectors are loaded from :param table_name and returned in X, a sparse matrix where each row is
@@ -37,15 +38,13 @@ def load_X_Y(table_name, top10_labels=True, top100_labels=False, test_set=False,
     with the training set. Providing a value for :param n_features will eliminate this problem.
     :return: X, Y
     """
-    assert(top10_labels ^ top100_labels)
-
     db = DatabaseManager()
     cur = db.get_bag_of_words_vectors(table_name)
 
     # Y_list holds the Y vector for each of the 10 (100) binary classifiers (list of numpy arrays).
-    Y_list = [np.zeros(cur.rowcount) for _ in range(10 if top10_labels else 100)]
+    Y_list = [np.zeros(cur.rowcount) for _ in range(100 if top100_labels else 10)]
 
-    icd9_codes_map = get_icd9_codes_map(top10_labels=top10_labels, top100_labels=top100_labels)
+    icd9_codes_map = get_icd9_codes_map(top100_labels=top100_labels)
 
     data = []
     row_ind = []
@@ -103,63 +102,74 @@ def calculate_metrics(predicted, actual):
     return precision, recall
 
 
-if __name__ == '__main__':
-    time = strftime("%Y%m%d%H%M%S", gmtime())
-    root_logger = logging_utils.build_logger('{}_logistic_regression.log'.format(time))
-    logger = root_logger.getLogger('logistic_regression')
-    top10_labels = True
-    top100_labels = False
-    bag_of_words_train_table_name = 'bw_vocabulary_train_top10_labels_20180405161930p'
-    bag_of_words_test_table_name = 'bw_test_vocabulary_train_top10_labels_20180405161930p'
-    # bag_of_words_train_table_name = 'bw_vocabulary_train_toy_top10_labels_20180406113245p'
-    # bag_of_words_test_table_name = 'bw_test_vocabulary_train_toy_top10_labels_20180406113245p'
-
-    logger.info('Program start')
-    logger.info('Config: top10_labels = %s, top100_labels = %s, bag_of_words_train_table_name = %s, bag_of_words_test_table_name = %s' ,
-                top10_labels, top100_labels, bag_of_words_train_table_name, bag_of_words_test_table_name)
-    X_train, Y_train = load_X_Y(bag_of_words_train_table_name, top10_labels=top10_labels, top100_labels=top100_labels)
-    n_features = X_train.shape[1]
-    logger.info('X_train, Y_train loaded')
-    normalize(X_train, norm='l1', axis=1, copy=False)
-    logger.info('X_train normalized')
-
+def train_classifiers(logger, X_train, Y_train):
     classifiers = []
     for i, Y in enumerate(Y_train):
         logistic_regression_model = LogisticRegression()
         logistic_regression_model.fit(X_train, Y)
-        logger.info('Classifier {} trained'.format(i))
+        logger.info('Classifier {} trained'.format(i + 1))
         classifiers.append(logistic_regression_model)
 
-    logger.info('Building result matrix for training set')
-    number_of_patients_train = Y_train[0].shape[0]
-    predicted_matrix_train = np.zeros((number_of_patients_train, len(classifiers)))
-    actual_matrix_train = np.zeros((number_of_patients_train, len(classifiers)))
+    return classifiers
 
-    for j, classifier, actual_Y in zip(range(len(classifiers)), classifiers, Y_train):
+
+def calculate_predicted_matrix(classifiers, number_of_patients, X_train):
+    predicted_matrix = np.zeros((number_of_patients, len(classifiers)))
+
+    for j, classifier in enumerate(classifiers):
         predicted = classifier.predict(X_train)  # An array containing which patients are tagged with the label of this classifier.
-        predicted_matrix_train[:, j] = predicted
-        actual_matrix_train[:, j] = actual_Y
+        predicted_matrix[:, j] = predicted
 
-    precision_train, recall_train = calculate_metrics(predicted_matrix_train, actual_matrix_train)
+    return predicted_matrix
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Logistic regression model. Reads bag of words vectors from a '
+                                                 'training set and a test set, stored in the provided tables, '
+                                                 'and evaluates the performance of a collection of logistic '
+                                                 'regression classifiers, one for each ICD9 label.')
+    parser.add_argument('train_table_name')
+    parser.add_argument('test_table_name')
+    parser.add_argument('--top100_labels', action='store_true', default=False)
+    parser.add_argument('--dont_normalize_input_features', action='store_true', default=False)
+    args = parser.parse_args()
+
+    time = strftime("%m%d_%H%M%S", gmtime())
+    root_logger = logging_utils.build_logger('{}_logistic_regression.log'.format(time))
+    logger = root_logger.getLogger('logistic_regression')
+
+    logger.info('Program start')
+    logger.info(args)
+
+    X_train, Y_train = load_X_Y(args.train_table_name, top100_labels=args.top100_labels)
+    n_features = X_train.shape[1]
+    logger.info('X_train, Y_train loaded')
+    if not args.dont_normalize_input_features:
+        normalize(X_train, norm='l1', axis=1, copy=False)
+        logger.info('X_train normalized')
+
+    classifiers = train_classifiers(logger, X_train, Y_train)
+
+    logger.info('Building result matrix for training set')
+    number_of_patients_training_set = Y_train[0].shape[0]
+    predicted_matrix_train = calculate_predicted_matrix(classifiers, number_of_patients_training_set, X_train)
+    actual_matrix_train = np.column_stack(Y_train)  # Stack vertically the elements of the Y_train list.
+
     logger.info('Computing metrics for training set')
+    precision_train, recall_train = calculate_metrics(predicted_matrix_train, actual_matrix_train)
     logger.info('Training set -- Precision = %s, Recall = %s', precision_train, recall_train)
 
-    X_test, Y_test = load_X_Y(bag_of_words_test_table_name, top10_labels=top10_labels, top100_labels=top100_labels,
-                              test_set=True, n_features=n_features)
+    X_test, Y_test = load_X_Y(args.test_table_name, top100_labels=args.top100_labels, test_set=True, n_features=n_features)
     logger.info('X_test, Y_test loaded')
-    normalize(X_test, norm='l1', axis=1, copy=False)
-    logger.info('X_test normalized')
+    if not args.dont_normalize_input_features:
+        normalize(X_test, norm='l1', axis=1, copy=False)
+        logger.info('X_test normalized')
 
     logger.info('Building result matrix for test set')
-    number_of_patients_test = Y_test[0].shape[0]
-    predicted_matrix_test = np.zeros((number_of_patients_test, len(classifiers)))
-    actual_matrix_test = np.zeros((number_of_patients_test, len(classifiers)))
+    number_of_patients_test_set = Y_test[0].shape[0]
+    predicted_matrix_test = calculate_predicted_matrix(classifiers, number_of_patients_test_set, X_test)
+    actual_matrix_test = np.column_stack(Y_test)
 
-    for j, classifier, actual_Y in zip(range(len(classifiers)), classifiers, Y_test):
-        predicted = classifier.predict(X_test)  # An array containing which patients are tagged with the label of this classifier.
-        predicted_matrix_test[:, j] = predicted
-        actual_matrix_test[:, j] = actual_Y
-
-    precision_test, recall_test = calculate_metrics(predicted_matrix_test, actual_matrix_test)
     logger.info('Computing metrics for test set')
+    precision_test, recall_test = calculate_metrics(predicted_matrix_test, actual_matrix_test)
     logger.info('Test set -- Precision = %s, Recall = %s', precision_test, recall_test)

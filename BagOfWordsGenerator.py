@@ -1,5 +1,6 @@
 import argparse
 import json
+import os
 from time import gmtime, strftime
 
 from scipy.sparse import csr_matrix
@@ -67,8 +68,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Generate bag of words vectors for each patient using the patient's "
                                                  "medical notes and a provided vocabulary. The bag of words are "
                                                  "stored in a database table.")
-    parser.add_argument('vocabulary_filename', help='the name of the file inside the serialized_vocabularies '
-                                                    'directory where the vocabulary to be used is stored')
+    parser.add_argument('vocabulary_filename', help='the name of the file where the vocabulary to be used is stored')
     parser.add_argument('--toy_set', nargs='?', const=700, help='how many rows to fetch from the corpus table')
     parser.add_argument('--test_set', action='store_true', default=False, help='fetch the notes from the test table')
     parser.add_argument('--top100_labels', action='store_true', default=False)
@@ -81,9 +81,12 @@ if __name__ == '__main__':
     logger.info('Program start')
     logger.info(args)
 
-    vocabulary = load_vocabulary('serialized_vocabularies/' + args.vocabulary_filename)
+    vocabulary = load_vocabulary(args.vocabulary_filename)
     logger.info('Vocabulary loaded')
     logger.info('Vocabulary length = %s', len(vocabulary))
+
+    # Get the filename without extension from the path.
+    vocabulary_filename = os.path.splitext(os.path.basename(args.vocabulary_filename))[0]
 
     db = DatabaseManager()
     subject_ids, corpus = db.get_corpus(toy_set=args.toy_set, top100_labels=args.top100_labels, test_set=args.test_set)
@@ -92,5 +95,6 @@ if __name__ == '__main__':
     bag_of_words_vectors = bag_of_words_generator.build_bag_of_words_vectors()
     logger.info('Bag of words vectors created')
 
-    table_name = db.insert_bag_of_words_vectors(bag_of_words_vectors, args.vocabulary_filename, test_set=args.test_set)
+    table_name = db.insert_bag_of_words_vectors(bag_of_words_vectors, vocabulary_filename, test_set=args.test_set)
     logger.info('Bag of words vectors inserted in table %s', table_name)
+    print(table_name)

@@ -92,18 +92,19 @@ class DatabaseManager:
 
         return table_name
 
-    def get_icd9_codes(self, top10_labels=True, top100_labels=False, subject_id=None, test_set=False):
-        assert((top10_labels ^ top100_labels) or (subject_id is not None))
+    def get_icd9_codes(self, top100_labels=False, subject_id=None, test_set=False):
+        if top100_labels:
+            assert (subject_id is None)
 
         cur = self.__conn.cursor()
 
         if subject_id is None:
-            if top10_labels:
-                cur.execute('SELECT icd9_code FROM top10_labels ORDER BY icd9_code ASC')
-            elif top100_labels:
+            if top100_labels:
                 pass
+            else:
+                cur.execute('SELECT icd9_code FROM top10_labels ORDER BY icd9_code ASC')
         else:
-            table_name = ('test_set' if test_set else 'training_set') + ('_top10_labels' if top10_labels else '_top100_labels') + '_patients_and_diagnoses'
+            table_name = ('test_set' if test_set else 'training_set') + ('_top100_labels' if top100_labels else '_top10_labels') + '_patients_and_diagnoses'
             cur.execute('SELECT icd9_code FROM %s WHERE subject_id = %s ORDER BY icd9_code ASC', (AsIs(table_name), subject_id,))
 
         return [row[0] for row in cur.fetchall()]

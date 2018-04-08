@@ -107,3 +107,4 @@ if __name__ == '__main__':
     filename = get_filename_vocabulary(time, args.toy_set, args.top100_labels)
     write_vocabulary_to_file(vocabulary, filename)
     logger.info('Vocabulary written to {}'.format(filename))
+    print(filename)
