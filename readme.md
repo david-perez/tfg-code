@@ -16,6 +16,11 @@ create_materialized_view_test_set_top10_labels.sql
 
 Some valuable insights into the dataset can be gained by running the queries in the folder `sql/explore_dataset`.
 
+Install the project's dependencies using `pip install -r requirements.txt`.
+
+Download the `en_core_web_sm` spaCy model and symlink it to `en` within the `spacy/data` directory. Both of these things
+can be done using the command [`python -m spacy download en`](https://spacy.io/models/).
+
 ## Setup
 
 Fill in the connection details to a PostgreSQL database containing the [MIMIC-III](https://mimic.physionet.org/) dataset
