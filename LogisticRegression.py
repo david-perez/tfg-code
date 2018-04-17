@@ -25,7 +25,7 @@ def log_metrics(Y_true, Y_pred):
                 fscore, precision, recall, subset_accuracy, jaccard)
 
 
-def train_classifiers(logger, X_train, Y_train):
+def train_classifiers(X_train, Y_train):
     classifiers = []
     for i, Y in enumerate(Y_train):
         logistic_regression_model = LogisticRegression()
@@ -71,7 +71,7 @@ if __name__ == '__main__':
         normalize(X_train, norm='l1', axis=1, copy=False)
         logger.info('X_train normalized')
 
-    classifiers = train_classifiers(logger, X_train, Y_train)
+    classifiers = train_classifiers(X_train, Y_train)
 
     logger.info('Building result matrix for training set')
     number_of_patients_training_set = Y_train[0].shape[0]
