@@ -9,20 +9,7 @@ from sklearn.preprocessing import normalize
 
 import logging_utils
 from BagOfWordsVectorsLoader import load_X_Y
-
-
-def log_metrics(Y_true, Y_pred):
-    """Calculate metrics evaluating the performance of the logistic regression classifiers.
-
-    :param Y_true: array-like, shape = (n_samples, n_classifiers)
-    :param Y_pred: array-like, shape = (n_samples, n_classifiers)
-    """
-
-    precision, recall, fscore, _ = sklearn.metrics.precision_recall_fscore_support(Y_true, Y_pred, average='samples')
-    subset_accuracy = sklearn.metrics.accuracy_score(Y_true, Y_pred)
-    jaccard = sklearn.metrics.jaccard_similarity_score(Y_true, Y_pred)
-    logger.info('F-score = %s, Precision = %s, Recall = %s, Subset-accuracy = %s, Jaccard index = %s',
-                fscore, precision, recall, subset_accuracy, jaccard)
+from evaluate_classifier import log_metrics
 
 
 def train_classifiers(X_train, Y_train):
@@ -79,7 +66,7 @@ if __name__ == '__main__':
     actual_matrix_train = np.column_stack(Y_train)  # Stack vertically the elements of the Y_train list.
 
     logger.info('Computing metrics for training set')
-    log_metrics(actual_matrix_train, predicted_matrix_train)
+    log_metrics(logger, actual_matrix_train, predicted_matrix_train)
 
     X_test, Y_test = load_X_Y(args.test_table_name, top100_labels=args.top100_labels, test_set=True, n_features=n_features)
     logger.info('X_test, Y_test loaded')
@@ -93,4 +80,4 @@ if __name__ == '__main__':
     actual_matrix_test = np.column_stack(Y_test)
 
     logger.info('Computing metrics for test set')
-    log_metrics(actual_matrix_test, predicted_matrix_test)
+    log_metrics(logger, actual_matrix_test, predicted_matrix_test)
