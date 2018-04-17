@@ -13,3 +13,5 @@ def log_metrics(logger, Y_true, Y_pred):
     jaccard = sklearn.metrics.jaccard_similarity_score(Y_true, Y_pred)
     logger.info('F-score = %s, Precision = %s, Recall = %s, Subset-accuracy = %s, Jaccard index = %s',
                 fscore, precision, recall, subset_accuracy, jaccard)
+
+    return {'fscore': fscore, 'precision': precision, 'recall': recall, 'subset_accuracy': subset_accuracy, 'jaccard': jaccard}
