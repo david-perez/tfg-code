@@ -109,6 +109,18 @@ class DatabaseManager:
 
         return [row[0] for row in cur.fetchall()]
 
+    def get_patients_with_icd9_codes(self, icd9_codes):
+        cur = self.__conn.cursor()
+
+        cur.execute("""
+          SELECT subject_id
+          FROM diagnoses_icd_top10_from_patients_with_top10_labels
+          GROUP BY subject_id
+          HAVING array_agg(DISTINCT icd9_code) @> %s::varchar[]
+        """, (icd9_codes,))
+
+        return [row[0] for row in cur.fetchall()]
+
     def __close_connection(self):
         if self.__conn is not None:
             self.__conn.close()
