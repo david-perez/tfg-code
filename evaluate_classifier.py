@@ -8,10 +8,10 @@ def log_metrics(logger, Y_true, Y_pred):
     :param Y_pred: array-like, shape = (n_samples, n_classes)
     """
 
-    precision, recall, fscore, _ = sklearn.metrics.precision_recall_fscore_support(Y_true, Y_pred, average='samples')
+    precision, recall, f1score, _ = sklearn.metrics.precision_recall_fscore_support(Y_true, Y_pred, average='samples')
     subset_accuracy = sklearn.metrics.accuracy_score(Y_true, Y_pred)
     jaccard = sklearn.metrics.jaccard_similarity_score(Y_true, Y_pred)
-    logger.info('F-score = %s, Precision = %s, Recall = %s, Subset-accuracy = %s, Jaccard index = %s',
-                fscore, precision, recall, subset_accuracy, jaccard)
+    logger.info('F1-score = %s, Precision = %s, Recall = %s, Subset-accuracy = %s, Jaccard index = %s',
+                f1score, precision, recall, subset_accuracy, jaccard)
 
-    return {'fscore': fscore, 'precision': precision, 'recall': recall, 'subset_accuracy': subset_accuracy, 'jaccard': jaccard}
+    return {'f1score': f1score, 'precision': precision, 'recall': recall, 'subset_accuracy': subset_accuracy, 'jaccard': jaccard}
