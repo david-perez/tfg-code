@@ -58,7 +58,8 @@ class BagOfWordsGenerator:
 
 
 def load_vocabulary(filename):
-    with open(filename, 'r') as infile:
+    # filename is the name of a file in the directory serialized_vocabularies/
+    with open('../serialized_vocabularies/' + filename, 'r') as infile:
         return json.load(infile)
 
 
@@ -69,6 +70,7 @@ if __name__ == '__main__':
     parser.add_argument('vocabulary_filename', help='the name of the file where the vocabulary to be used is stored')
     parser.add_argument('--toy_set', nargs='?', const=700, help='how many rows to fetch from the corpus table')
     parser.add_argument('--test_set', action='store_true', default=False, help='fetch the notes from the test table')
+    parser.add_argument('--validation_set', action='store_true', default=False, help='fetch the notes from the validation table')
     parser.add_argument('--top100_labels', action='store_true', default=False)
     args = parser.parse_args()
 
@@ -87,12 +89,12 @@ if __name__ == '__main__':
     vocabulary_filename = os.path.splitext(os.path.basename(args.vocabulary_filename))[0]
 
     db = DatabaseManager()
-    subject_ids, corpus = db.get_corpus(toy_set=args.toy_set, top100_labels=args.top100_labels, test_set=args.test_set)
+    subject_ids, corpus = db.get_corpus(toy_set=args.toy_set, top100_labels=args.top100_labels, validation_set=args.validation_set, test_set=args.test_set)
 
     bag_of_words_generator = BagOfWordsGenerator(logger, vocabulary, subject_ids, corpus)
     bag_of_words_vectors = bag_of_words_generator.build_bag_of_words_vectors()
     logger.info('Bag of words vectors created')
 
-    table_name = db.insert_bag_of_words_vectors(bag_of_words_vectors, vocabulary_filename, test_set=args.test_set)
+    table_name = db.insert_bag_of_words_vectors(bag_of_words_vectors, vocabulary_filename, validation_set=args.validation_set, test_set=args.test_set)
     logger.info('Bag of words vectors inserted in table %s', table_name)
     print(table_name)

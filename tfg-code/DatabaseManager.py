@@ -45,10 +45,17 @@ class DatabaseManager:
 
         return conn
 
-    def get_corpus(self, toy_set=None, top100_labels=False, test_set=False):
+    def get_corpus(self, toy_set=None, top100_labels=False, validation_set=False, test_set=False):
         cur = self.__conn.cursor()
 
-        table_name = ('test_set_' if test_set else 'training_set_') + ('top100_labels' if top100_labels else 'top10_labels');
+        if test_set:
+            dataset = 'test_set_'
+        elif validation_set:
+            dataset = 'validation_set_'
+        else:
+            dataset = 'training_set_'
+
+        table_name = dataset + ('top100_labels' if top100_labels else 'top10_labels');
         sql_select = 'SELECT * FROM %s ORDER BY subject_id ASC, r ASC'
         if toy_set is not None:
             sql_select += ' LIMIT %s'
@@ -64,12 +71,14 @@ class DatabaseManager:
 
         return subject_ids, notes
 
-    def insert_bag_of_words_vectors(self, bag_of_words_vectors, vocabulary_filename, test_set=False):
+    def insert_bag_of_words_vectors(self, bag_of_words_vectors, vocabulary_filename, validation_set=False, test_set=False):
         cur = self.__conn.cursor()
 
         table_name = 'bw_'
         if test_set:
             table_name += 'test_'
+        elif validation_set:
+            table_name += 'validation_'
         vocabulary_filename, _ = os.path.splitext(vocabulary_filename)  # Remove extension.
         table_name += vocabulary_filename.replace('.', '')
         cur.execute("""
