@@ -8,7 +8,7 @@ from sklearn.preprocessing import normalize
 
 import logging_utils
 from BagOfWordsVectorsLoader import load_X_Y
-from evaluate_classifier import log_metrics
+from evaluate_classifier import compute_metrics_and_log_to_stdout
 
 
 def train_classifiers(X_train, Y_train):
@@ -65,7 +65,7 @@ if __name__ == '__main__':
     actual_matrix_train = np.column_stack(Y_train)  # Stack vertically the elements of the Y_train list.
 
     logger.info('Computing metrics for training set')
-    log_metrics(logger, actual_matrix_train, predicted_matrix_train)
+    compute_metrics_and_log_to_stdout(logger, actual_matrix_train, predicted_matrix_train)
 
     X_test, Y_test = load_X_Y(args.test_table_name, top100_labels=args.top100_labels, test_set=True, n_features=n_features)
     logger.info('X_test, Y_test loaded')
@@ -79,4 +79,4 @@ if __name__ == '__main__':
     actual_matrix_test = np.column_stack(Y_test)
 
     logger.info('Computing metrics for test set')
-    log_metrics(logger, actual_matrix_test, predicted_matrix_test)
+    compute_metrics_and_log_to_stdout(logger, actual_matrix_test, predicted_matrix_test)
