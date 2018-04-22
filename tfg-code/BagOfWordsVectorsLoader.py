@@ -7,7 +7,7 @@ from DatabaseManager import DatabaseManager
 from utils import get_icd9_codes_map
 
 
-def load_X_Y(table_name, top100_labels=False, test_set=False, n_features=None):
+def load_X_Y(table_name, top100_labels=False, validation_set=False, test_set=False, n_features=None):
     """Return the sample matrix X and a list of Y vectors for the bag of words vectors contained in :param table_name.
 
     The bag of words vectors are loaded from :param table_name and returned in X, a sparse matrix where each row is
@@ -52,7 +52,7 @@ def load_X_Y(table_name, top100_labels=False, test_set=False, n_features=None):
         col_ind += bag_of_words_vector_col_ind
 
         # Get the icd9 codes of the diseases this subject_id has.
-        diagnoses = db.get_icd9_codes(subject_id=subject_id, test_set=test_set)
+        diagnoses = db.get_icd9_codes(subject_id=subject_id, validation_set=validation_set, test_set=test_set)
         for icd9_code in diagnoses:
             idx = icd9_codes_map[icd9_code]
             Y_list[idx][cnt] = 1
@@ -67,7 +67,7 @@ def load_X_Y(table_name, top100_labels=False, test_set=False, n_features=None):
         return csr_matrix((data, (row_ind, col_ind))), Y_list
 
 
-def load_X_Y_nn(table_name, top100_labels=False, test_set=False, n_features=None):
+def load_X_Y_nn(table_name, top100_labels=False, validation_set=False, test_set=False, n_features=None):
     db = DatabaseManager()
     cur = db.get_bag_of_words_vectors(table_name)
     n_patients = cur.rowcount
@@ -89,7 +89,7 @@ def load_X_Y_nn(table_name, top100_labels=False, test_set=False, n_features=None
         col_ind += bag_of_words_vector_col_ind
 
         # Get the icd9 codes of the diseases this subject_id has.
-        diagnoses = db.get_icd9_codes(subject_id=subject_id, test_set=test_set)
+        diagnoses = db.get_icd9_codes(subject_id=subject_id, validation_set=validation_set, test_set=test_set)
         for icd9_code in diagnoses:
             idx = icd9_codes_map[icd9_code]
             Y[cnt][idx] = 1
