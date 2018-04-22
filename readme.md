@@ -37,6 +37,12 @@ a list of words to the `serialized_vocabularies` directory.
 vocabulary. It creates a table in the database containing the serialized (in binary) bag if words vectors for each patient.
 The script outputs the name of the table that is created.
 
+When running models that log to TensorBoard, ensure TensorBoard is run using
+
+```
+tensorboard --logdir=tensorboard_logs/
+``` 
+
 ### Models
 
 `LogisticRegression.py` reads bag of words vectors from a training set and a test set, stored in the provided tables,
