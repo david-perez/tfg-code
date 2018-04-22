@@ -16,7 +16,7 @@ create_materialized_view_training_set_top10_labels_patients_and_diagnoses.sql
 create_materialized_view_test_set_top10_labels_patients_and_diagnoses.sql
 ```
 
-Some valuable insights into the dataset can be gained by running the queries in the folder `sql/explore_dataset`.
+Some valuable insights into the dataset can be gained by running the queries and scripts in the folder `explore_dataset/`.
 
 Install the project's dependencies using `pip install -r requirements.txt`.
 

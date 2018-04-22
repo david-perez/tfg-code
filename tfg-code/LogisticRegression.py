@@ -2,7 +2,6 @@ import argparse
 from time import strftime, gmtime
 
 import numpy as np
-import sklearn
 
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import normalize
