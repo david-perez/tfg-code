@@ -30,6 +30,8 @@ in a file named `database.ini` (see the example file `database.ini.example`).
 
 ## Usage
 
+All scripts must be run from the tfg-code directory.
+
 `VocabularyGenerator.py` generates the vocabulary from the corpora in the training set. It outputs a json file containing
 a list of words to the `serialized_vocabularies` directory.
 

@@ -99,7 +99,7 @@ if __name__ == '__main__':
     logger.info(args)
 
     db = DatabaseManager()
-    _, corpus = db.get_corpus(toy_set=args.toy_set, top100_labels=args.top100_labels)
+    _, corpus, _ = db.get_corpus(toy_set=args.toy_set, top100_labels=args.top100_labels)
 
     vocabulary_generator = VocabularyGenerator(corpus, logger)
     vocabulary = vocabulary_generator.build_vocabulary()

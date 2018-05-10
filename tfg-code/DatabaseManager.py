@@ -65,22 +65,18 @@ class DatabaseManager:
 
         subject_ids = []
         notes = []
+        chart_dates = []
         for row in cur:
             notes.append(row[5])
             subject_ids.append(row[1])
+            chart_dates.append(row[2])
 
-        return subject_ids, notes
+        return subject_ids, notes, chart_dates
 
     def insert_bag_of_words_vectors(self, bag_of_words_vectors, vocabulary_filename, validation_set=False, test_set=False):
         cur = self.__conn.cursor()
+        table_name = self.__table_name_bag_of_words_vectors(vocabulary_filename, validation_set, test_set)
 
-        table_name = 'bw_'
-        if test_set:
-            table_name += 'test_'
-        elif validation_set:
-            table_name += 'validation_'
-        vocabulary_filename, _ = os.path.splitext(vocabulary_filename)  # Remove extension.
-        table_name += vocabulary_filename.replace('.', '')
         cur.execute("""
             CREATE TABLE %s (
                 subject_id INTEGER PRIMARY KEY NOT NULL,
@@ -96,8 +92,45 @@ class DatabaseManager:
                         (AsIs(table_name), subject_id, how_many_notes,
                          psycopg2.Binary(pickle.dumps(bag_of_words_col_ind)),
                          psycopg2.Binary(pickle.dumps(bag_of_words_data))))
-
         self.__conn.commit()
+
+        return table_name
+
+    def insert_bag_of_words_vectors_rnn(self, bag_of_words_vectors, vocabulary_filename, validation_set=False, test_set=False):
+        cur = self.__conn.cursor()
+        table_name = self.__table_name_bag_of_words_vectors(vocabulary_filename, validation_set, test_set, for_rnn=True)
+
+        cur.execute("""
+            CREATE TABLE %s (
+                row_id BIGINT PRIMARY KEY NOT NULL,
+                subject_id INTEGER,
+                chart_date TIMESTAMP(0),
+                bag_of_words_binary_vector_col_ind BYTEA NOT NULL,
+                bag_of_words_binary_vector_data BYTEA NOT NULL
+            );
+        """, (AsIs(table_name),))
+        self.__conn.commit()
+
+        for row_id, (subject_id, chart_date, bag_of_words_col_ind, bag_of_words_data) in enumerate(bag_of_words_vectors):
+            cur.execute('INSERT INTO %s VALUES (%s, %s, %s, %s, %s)',
+                        (AsIs(table_name), row_id, subject_id, chart_date,
+                         psycopg2.Binary(pickle.dumps(bag_of_words_col_ind)),
+                         psycopg2.Binary(pickle.dumps(bag_of_words_data))))
+        self.__conn.commit()
+
+        return table_name
+
+    @staticmethod
+    def __table_name_bag_of_words_vectors(vocabulary_filename, validation_set, test_set, for_rnn=False):
+        table_name = 'bw_'
+        if test_set:
+            table_name += 'test_'
+        elif validation_set:
+            table_name += 'validation_'
+        if for_rnn:
+            table_name += 'rnn_'
+        vocabulary_filename, _ = os.path.splitext(vocabulary_filename)  # Remove extension.
+        table_name += vocabulary_filename.replace('.', '')
 
         return table_name
 

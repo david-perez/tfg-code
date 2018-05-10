@@ -12,25 +12,31 @@ from SpacyAnalyzer import SpacyAnalyzer
 
 
 class BagOfWordsGenerator:
-    def __init__(self, log, vocabulary, subject_ids, corpus):
+    def __init__(self, log, vocabulary, subject_ids, corpus, chart_dates):
         # corpus is a Python list containing medical notes.
-        # The note corpus[i] belongs to the patient subject_ids[i].
+        # The note corpus[i] belongs to the patient subject_ids[i] and was taken on chart_dates[i].
 
         self.__log = log
         self.__vocabulary = vocabulary
         self.__corpus = corpus
         self.__subject_ids = subject_ids
+        self.__chart_dates = chart_dates
 
         self.__analyzer = SpacyAnalyzer()
+        self.__X = None
+
+    def build_X(self):
+        vectorizer = CountVectorizer(analyzer=self.__analyzer.analyze, vocabulary=self.__vocabulary)
+        self.__X = vectorizer.fit_transform(self.__corpus)
+        self.__log.info("Term-document count matrix computed")
 
     def build_bag_of_words_vectors(self):
-        vectorizer = CountVectorizer(analyzer=self.__analyzer.analyze, vocabulary=self.__vocabulary)
-        X = vectorizer.fit_transform(self.__corpus)
-        self.__log.info("Term-document count matrix computed")
+        if self.__X is None:
+            self.build_X()
 
         ret = []
 
-        rows, cols = X.shape
+        rows, cols = self.__X.shape
         subject_id = -1 # Sentinel value.
         bag_of_words = csr_matrix((1, cols))  # Initialised to all zeros.
         how_many_notes = 0
@@ -46,13 +52,30 @@ class BagOfWordsGenerator:
                 subject_id = self.__subject_ids[i]
                 bag_of_words = csr_matrix((1, cols))
                 how_many_notes = 0
-            bag_of_words += X.getrow(i)
+            bag_of_words += self.__X.getrow(i)
             how_many_notes += 1
 
         # Store the last bag of words of the last patient.
         bag_of_words_col_ind = bag_of_words.nonzero()[1].tolist()
         bag_of_words_data = bag_of_words.data.tolist()
         ret.append((subject_id, how_many_notes, bag_of_words_col_ind, bag_of_words_data))
+
+        return ret
+
+    def build_bag_of_words_vectors_rnn(self):
+        if self.__X is None:
+            self.build_X()
+
+        ret = []
+
+        rows, cols = self.__X.shape
+        for i in range(rows):
+            bag_of_words = self.__X.getrow(i)
+            subject_id = self.__subject_ids[i]
+            chart_date = self.__chart_dates[i]
+            bag_of_words_col_ind = bag_of_words.nonzero()[1].tolist()
+            bag_of_words_data = bag_of_words.data.tolist()
+            ret.append((subject_id, chart_date, bag_of_words_col_ind, bag_of_words_data))
 
         return ret
 
@@ -72,6 +95,7 @@ if __name__ == '__main__':
     parser.add_argument('--test_set', action='store_true', default=False, help='fetch the notes from the test table')
     parser.add_argument('--validation_set', action='store_true', default=False, help='fetch the notes from the validation table')
     parser.add_argument('--top100_labels', action='store_true', default=False)
+    parser.add_argument('--for_rnn', action='store_true', default=False)
     args = parser.parse_args()
 
     time = strftime("%m%d_%H%M%S", gmtime())
@@ -88,13 +112,29 @@ if __name__ == '__main__':
     # Get the filename without extension from the path.
     vocabulary_filename = os.path.splitext(os.path.basename(args.vocabulary_filename))[0]
 
+    # Get the corpus and prepare the bag of words generator.
     db = DatabaseManager()
-    subject_ids, corpus = db.get_corpus(toy_set=args.toy_set, top100_labels=args.top100_labels, validation_set=args.validation_set, test_set=args.test_set)
+    subject_ids, corpus, chart_dates = db.get_corpus(toy_set=args.toy_set,
+                                                     top100_labels=args.top100_labels,
+                                                     validation_set=args.validation_set,
+                                                     test_set=args.test_set)
+    bag_of_words_generator = BagOfWordsGenerator(logger, vocabulary, subject_ids, corpus, chart_dates)
 
-    bag_of_words_generator = BagOfWordsGenerator(logger, vocabulary, subject_ids, corpus)
-    bag_of_words_vectors = bag_of_words_generator.build_bag_of_words_vectors()
-    logger.info('Bag of words vectors created')
+    if args.for_rnn:
+        bag_of_words_vectors_rnn = bag_of_words_generator.build_bag_of_words_vectors_rnn()
+        logger.info('Bag of words vectors for RNN created')
+        table_name = db.insert_bag_of_words_vectors_rnn(bag_of_words_vectors_rnn,
+                                                        vocabulary_filename,
+                                                        validation_set=args.validation_set,
+                                                        test_set=args.test_set)
+        logger.info('Bag of words vectors for RNN inserted in table %s', table_name)
+    else:
+        bag_of_words_vectors = bag_of_words_generator.build_bag_of_words_vectors()
+        logger.info('Bag of words vectors created')
+        table_name = db.insert_bag_of_words_vectors(bag_of_words_vectors,
+                                                    vocabulary_filename,
+                                                    validation_set=args.validation_set,
+                                                    test_set=args.test_set)
+        logger.info('Bag of words vectors inserted in table %s', table_name)
 
-    table_name = db.insert_bag_of_words_vectors(bag_of_words_vectors, vocabulary_filename, validation_set=args.validation_set, test_set=args.test_set)
-    logger.info('Bag of words vectors inserted in table %s', table_name)
     print(table_name)
