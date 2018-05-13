@@ -4,7 +4,6 @@ import datetime
 import numpy as np
 
 from sklearn.linear_model import LogisticRegression
-from sklearn.preprocessing import normalize
 
 import logging_utils
 from bag_of_words_loader import load_X_Y
@@ -41,7 +40,7 @@ if __name__ == '__main__':
     parser.add_argument('train_table_name')
     parser.add_argument('test_table_name')
     parser.add_argument('--top100_labels', action='store_true', default=False)
-    parser.add_argument('--dont_normalize_input_features', action='store_true', default=False)
+    parser.add_argument('--dont_normalize', action='store_true', default=False)
     args = parser.parse_args()
 
     db = DatabaseManager()
@@ -58,12 +57,11 @@ if __name__ == '__main__':
     logger.info('Program start, classifier experiment id = %s', experiment_id)
     logger.info(args)
 
-    X_train, Y_train = load_X_Y(args.train_table_name, top100_labels=args.top100_labels)
+    X_train, Y_train = load_X_Y(args.train_table_name,
+                                top100_labels=args.top100_labels,
+                                normalize_by_npatients=(False if args.dont_normalize else True))
     n_features = X_train.shape[1] # TODO This is correct but it would be nicer if we knew the vocabulary length beforehand and provided it to load_X_Y()
     logger.info('X_train, Y_train loaded')
-    if not args.dont_normalize_input_features:
-        normalize(X_train, norm='l1', axis=1, copy=False)
-        logger.info('X_train normalized')
 
     classifiers = train_classifiers(X_train, Y_train)
 
@@ -75,11 +73,12 @@ if __name__ == '__main__':
     logger.info('Computing metrics for training set')
     metrics_train = compute_metrics_and_log_to_stdout(logger, actual_matrix_train, predicted_matrix_train)
 
-    X_test, Y_test = load_X_Y(args.test_table_name, top100_labels=args.top100_labels, test_set=True, n_features=n_features)
+    X_test, Y_test = load_X_Y(args.test_table_name,
+                              top100_labels=args.top100_labels,
+                              test_set=True,
+                              n_features=n_features,
+                              normalize_by_npatients=(False if args.dont_normalize else True))
     logger.info('X_test, Y_test loaded')
-    if not args.dont_normalize_input_features:
-        normalize(X_test, norm='l1', axis=1, copy=False)
-        logger.info('X_test normalized')
 
     logger.info('Building result matrix for test set')
     number_of_patients_test_set = Y_test[0].shape[0]

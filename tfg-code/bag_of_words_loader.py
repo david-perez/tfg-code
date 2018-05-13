@@ -7,7 +7,7 @@ from database_manager import DatabaseManager
 from utils import get_icd9_codes_map
 
 
-def load_X_Y(table_name, top100_labels=False, validation_set=False, test_set=False, n_features=None):
+def load_X_Y(table_name, top100_labels=False, validation_set=False, test_set=False, n_features=None, normalize_by_npatients=False):
     """Return the sample matrix X and a list of Y vectors for the bag of words vectors contained in :param table_name.
 
     The bag of words vectors are loaded from :param table_name and returned in X, a sparse matrix where each row is
@@ -43,9 +43,12 @@ def load_X_Y(table_name, top100_labels=False, validation_set=False, test_set=Fal
     row_ind = []
     col_ind = []
     cnt = 0
-    for subject_id, _, bag_of_words_binary_vector_col_ind, bag_of_words_binary_vector_data in cur:
+    for subject_id, how_many_notes, bag_of_words_binary_vector_col_ind, bag_of_words_binary_vector_data in cur:
         bag_of_words_vector_col_ind = pickle.loads(bag_of_words_binary_vector_col_ind)
         bag_of_words_vector_data = pickle.loads(bag_of_words_binary_vector_data)
+
+        if normalize_by_npatients:
+            bag_of_words_vector_data = [x / how_many_notes for x in bag_of_words_vector_data]
 
         data += bag_of_words_vector_data
         row_ind += [cnt] * len(bag_of_words_vector_col_ind)
