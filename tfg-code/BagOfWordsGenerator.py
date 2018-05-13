@@ -1,7 +1,5 @@
 import argparse
-import json
-import os
-from time import gmtime, strftime
+import datetime
 
 from scipy.sparse import csr_matrix
 from sklearn.feature_extraction.text import CountVectorizer
@@ -80,17 +78,37 @@ class BagOfWordsGenerator:
         return ret
 
 
-def load_vocabulary(filename):
-    # filename is the name of a file in the directory serialized_vocabularies/
-    with open('../serialized_vocabularies/' + filename, 'r') as infile:
-        return json.load(infile)
+def get_table_name(args, experiment_id):
+    ret = 'bw_'
+
+    if args.test_set:
+        ret += 'test_'
+    elif args.validation_set:
+        ret += 'val_'
+    else:
+        ret += 'train_'
+
+    if args.toy_set:
+        ret += 'toy_'
+
+    if args.top100_labels:
+        ret += 'top10_'
+    else:
+        ret += 'top100_'
+
+    if args.for_rnn:
+        ret += 'rnn_'
+
+    ret += str(experiment_id)
+
+    return ret
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Generate bag of words vectors for each patient using the patient's "
                                                  "medical notes and a provided vocabulary. The bag of words are "
                                                  "stored in a database table.")
-    parser.add_argument('vocabulary_filename', help='the name of the file where the vocabulary to be used is stored')
+    parser.add_argument('vocabulary_experiment', help='the experiment id from the row in the database where the vocabulary to be used is stored')
     parser.add_argument('--toy_set', nargs='?', const=700, help='how many rows to fetch from the corpus table')
     parser.add_argument('--test_set', action='store_true', default=False, help='fetch the notes from the test table')
     parser.add_argument('--validation_set', action='store_true', default=False, help='fetch the notes from the validation table')
@@ -98,19 +116,25 @@ if __name__ == '__main__':
     parser.add_argument('--for_rnn', action='store_true', default=False)
     args = parser.parse_args()
 
-    time = strftime("%m%d_%H%M%S", gmtime())
-    root_logger = logging_utils.build_logger('{}_bag_of_words_generator.log'.format(time))
-    logger = root_logger.getLogger('bag_of_words_generator')
+    db = DatabaseManager()
 
-    logger.info('Program start')
-    logger.info(args)
+    start = datetime.datetime.now()
+    time_str = start.strftime("%m%d_%H%M%S")
+    config = vars(args)
+    experiment_id = db.bag_of_words_generator_experiment_create(config, start)
 
-    vocabulary = load_vocabulary(args.vocabulary_filename)
+    log_filename = '{}_bag_of_words_generator.log'.format(experiment_id)
+    db.bag_of_words_generator_experiment_insert_log_file(experiment_id, log_filename)
+
+    logger = logging_utils.build_logger(log_filename).getLogger('bag_of_words_generator')
+    logger.info('Program start, bag of words generator experiment id = %s', experiment_id)
+    logger.info(config)
+
+    vocabulary = db.load_vocabulary(args.vocabulary_experiment)
     logger.info('Vocabulary loaded')
     logger.info('Vocabulary length = %s', len(vocabulary))
 
-    # Get the filename without extension from the path.
-    vocabulary_filename = os.path.splitext(os.path.basename(args.vocabulary_filename))[0]
+    table_name = get_table_name(args, experiment_id)
 
     # Get the corpus and prepare the bag of words generator.
     db = DatabaseManager()
@@ -123,18 +147,18 @@ if __name__ == '__main__':
     if args.for_rnn:
         bag_of_words_vectors_rnn = bag_of_words_generator.build_bag_of_words_vectors_rnn()
         logger.info('Bag of words vectors for RNN created')
-        table_name = db.insert_bag_of_words_vectors_rnn(bag_of_words_vectors_rnn,
-                                                        vocabulary_filename,
-                                                        validation_set=args.validation_set,
-                                                        test_set=args.test_set)
+        db.insert_bag_of_words_vectors_rnn(bag_of_words_vectors_rnn,
+                                           table_name)
         logger.info('Bag of words vectors for RNN inserted in table %s', table_name)
     else:
         bag_of_words_vectors = bag_of_words_generator.build_bag_of_words_vectors()
         logger.info('Bag of words vectors created')
-        table_name = db.insert_bag_of_words_vectors(bag_of_words_vectors,
-                                                    vocabulary_filename,
-                                                    validation_set=args.validation_set,
-                                                    test_set=args.test_set)
+        db.insert_bag_of_words_vectors(bag_of_words_vectors,
+                                       table_name)
         logger.info('Bag of words vectors inserted in table %s', table_name)
+
+    end = datetime.datetime.now()
+    db.bag_of_words_generator_experiment_insert_table_name(experiment_id, end, table_name)
+    logger.info('Bag of words vectors inserted into database, table = %s', table_name)
 
     print(table_name)

@@ -74,9 +74,8 @@ class DatabaseManager:
 
         return subject_ids, notes, chart_dates
 
-    def insert_bag_of_words_vectors(self, bag_of_words_vectors, vocabulary_filename, validation_set=False, test_set=False):
+    def insert_bag_of_words_vectors(self, bag_of_words_vectors, table_name):
         cur = self.__conn.cursor()
-        table_name = self.__table_name_bag_of_words_vectors(vocabulary_filename, validation_set, test_set)
 
         cur.execute("""
             CREATE TABLE %s (
@@ -95,11 +94,8 @@ class DatabaseManager:
                          psycopg2.Binary(pickle.dumps(bag_of_words_data))))
         self.__conn.commit()
 
-        return table_name
-
-    def insert_bag_of_words_vectors_rnn(self, bag_of_words_vectors, vocabulary_filename, validation_set=False, test_set=False):
+    def insert_bag_of_words_vectors_rnn(self, bag_of_words_vectors, table_name):
         cur = self.__conn.cursor()
-        table_name = self.__table_name_bag_of_words_vectors(vocabulary_filename, validation_set, test_set, for_rnn=True)
 
         cur.execute("""
             CREATE TABLE %s (
@@ -118,22 +114,6 @@ class DatabaseManager:
                          psycopg2.Binary(pickle.dumps(bag_of_words_col_ind)),
                          psycopg2.Binary(pickle.dumps(bag_of_words_data))))
         self.__conn.commit()
-
-        return table_name
-
-    @staticmethod
-    def __table_name_bag_of_words_vectors(vocabulary_filename, validation_set, test_set, for_rnn=False):
-        table_name = 'bw_'
-        if test_set:
-            table_name += 'test_'
-        elif validation_set:
-            table_name += 'validation_'
-        if for_rnn:
-            table_name += 'rnn_'
-        vocabulary_filename, _ = os.path.splitext(vocabulary_filename)  # Remove extension.
-        table_name += vocabulary_filename.replace('.', '')
-
-        return table_name
 
     def get_icd9_codes(self, top100_labels=False, subject_id=None, validation_set=False, test_set=False):
         if top100_labels:
@@ -224,4 +204,32 @@ class DatabaseManager:
         cur = self.__conn.cursor()
         cur.execute('UPDATE vocabulary_experiments SET "end" = %s, vocabulary = %s WHERE experiment_id = %s',
                     (end, json.dumps(vocabulary), experiment_id))
+        self.__conn.commit()
+
+    def bag_of_words_generator_experiment_create(self, config, start, comments=''):
+        cur = self.__conn.cursor()
+        cur.execute(
+            'INSERT INTO bag_of_words_generator_experiments (comments, config, start) VALUES(%s, %s, %s) RETURNING experiment_id',
+            (comments, json.dumps(config), start))
+        self.__conn.commit()
+
+        experiment_id = cur.fetchone()[0]
+        return experiment_id
+
+    def bag_of_words_generator_experiment_insert_log_file(self, experiment_id, log_filename):
+        cur = self.__conn.cursor()
+        cur.execute('UPDATE bag_of_words_generator_experiments SET log_filename = %s WHERE experiment_id = %s',
+                    (log_filename, experiment_id))
+        self.__conn.commit()
+
+    def load_vocabulary(self, vocabulary_experiment):
+        cur = self.__conn.cursor()
+        cur.execute('SELECT vocabulary FROM vocabulary_experiments WHERE experiment_id = %s', (vocabulary_experiment,))
+
+        return cur.fetchone()[0]
+
+    def bag_of_words_generator_experiment_insert_table_name(self, experiment_id, end, table_name):
+        cur = self.__conn.cursor()
+        cur.execute('UPDATE bag_of_words_generator_experiments SET "end" = %s, table_name = %s WHERE experiment_id = %s',
+                    (end, table_name, experiment_id))
         self.__conn.commit()
