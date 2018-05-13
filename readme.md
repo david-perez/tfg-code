@@ -14,6 +14,7 @@ create_materialized_view_validation_set_top10_labels.sql
 create_materialized_view_test_set_top10_labels.sql
 create_materialized_view_training_set_top10_labels_patients_and_diagnoses.sql
 create_materialized_view_test_set_top10_labels_patients_and_diagnoses.sql
+create_tables_experiments.sql
 ```
 
 Some valuable insights into the dataset can be gained by running the queries and scripts in the folder `explore_dataset/`.
