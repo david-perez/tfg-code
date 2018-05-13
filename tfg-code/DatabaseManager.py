@@ -233,3 +233,30 @@ class DatabaseManager:
         cur.execute('UPDATE bag_of_words_generator_experiments SET "end" = %s, table_name = %s WHERE experiment_id = %s',
                     (end, table_name, experiment_id))
         self.__conn.commit()
+
+    def classifier_experiment_create(self, config, start, classifier_name, train_table_name, val_table_name, test_table_name, comments=''):
+        cur = self.__conn.cursor()
+        cur.execute("""
+            INSERT INTO classifier_experiments
+            (classifier_name, comments, config, start, train_table_name, val_table_name, test_table_name)
+            VALUES(%s, %s, %s, %s, %s, %s, %s) RETURNING experiment_id
+        """, (classifier_name, comments, json.dumps(config), start, train_table_name, val_table_name, test_table_name))
+        self.__conn.commit()
+
+        experiment_id = cur.fetchone()[0]
+        return experiment_id
+
+    def classifier_experiment_insert_log_file(self, experiment_id, log_filename):
+        cur = self.__conn.cursor()
+        cur.execute('UPDATE classifier_experiments SET log_filename = %s WHERE experiment_id = %s',
+                    (log_filename, experiment_id))
+        self.__conn.commit()
+
+    def classifier_experiment_insert_metrics(self, experiment_id, metrics_train, metrics_val, metrics_test, end):
+        cur = self.__conn.cursor()
+        cur.execute("""
+            UPDATE classifier_experiments
+            SET metrics_train = %s, metrics_val = %s, metrics_test = %s, "end" = %s
+            WHERE experiment_id = %s
+        """, (json.dumps(metrics_train), json.dumps(metrics_val), json.dumps(metrics_test), end, experiment_id))
+        self.__conn.commit()

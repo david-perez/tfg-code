@@ -1,65 +1,25 @@
 import argparse
-import json
+import datetime
 from collections import defaultdict
 
 import tensorboardX
 import torch
-from time import strftime, gmtime
 
-import BagOfWordsVectorsLoader
 import logging_utils
-from evaluate_classifier import compute_metrics_and_log_to_stdout
+import tensor_loader
+from DatabaseManager import DatabaseManager
+from evaluate_classifier import compute_metrics_and_log_to_stdout, last_layer_to_predictions, write_metrics_to_file
 
 
-def print_cuda_info():
-    idx = torch.cuda.current_device()
-    logger.info('GPU detected: {}'.format(torch.cuda.get_device_name(idx)))
-
-
-def determine_tensor_type():
-    if not args.no_gpu:
-        print_cuda_info()
-        logger.info('Running on GPU')
-        dtype = torch.cuda.FloatTensor
-    else:
-        logger.info('Running on CPU')
-        dtype = torch.FloatTensor
-
-    return dtype
-
-
-def load_X_Y(table_name, validation_set=False, test_set=False):
-    dtype = determine_tensor_type()
-
-    data, row_ind, col_ind, n_patients, n_features, Y = BagOfWordsVectorsLoader.load_X_Y_nn(table_name,
-                                                                                            top100_labels=args.top100_labels,
-                                                                                            validation_set=validation_set,
-                                                                                            test_set=test_set)
-    logger.info('[%s]   Patients: %s, Features: %s', table_name, n_patients, n_features)
-    logger.info('[%s]   Bag of words vectors loaded', table_name)
-    indices = torch.LongTensor([row_ind, col_ind])
-    values = torch.FloatTensor(data)
-    X = torch.sparse.FloatTensor(indices, values, torch.Size((n_patients, n_features))).to_dense().type(dtype)  # TODO Cuidado con sparse tensor.
-    logger.info('[%s]   X tensor built', table_name)
-    Y = torch.FloatTensor(Y).type(dtype)  # BCEWithLogitsLoss requires a FloatTensor.
-    logger.info('[%s]   Y tensor built', table_name)
-
-    return torch.autograd.Variable(X), torch.autograd.Variable(Y)
-
-
-def last_layer_to_predictions(last_layer):
-    pred = last_layer.data.sigmoid().numpy().copy()
-    pred[pred >= 0.5] = 1
-    pred[pred < 0.5] = 0
-
-    return pred
-
-
-def log_metrics(metrics, epoch, tb_logger, metric_logger):
+def log_metrics(metrics, epoch, metric_logger, tb_logger=None):
     # First, log every single metric separately.
     for metric_name, val in metrics.items():
-        tb_logger.add_scalar(metric_name, val, epoch + 1)
+        if tb_logger is not None:
+            tb_logger.add_scalar(metric_name, val, epoch + 1)
         metric_logger[metric_name].append((val, epoch + 1))  # Append metrics from this epoch to previous metrics.
+
+    if tb_logger is None:
+        return
 
     # Next, log the metrics in useful groups.
     for group in [['precision', 'recall'], ['jaccard', 'subset_accuracy']]:
@@ -68,30 +28,32 @@ def log_metrics(metrics, epoch, tb_logger, metric_logger):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Feed forward neural network. Reads bag of words vectors from a '
-                                                 'training set and a test set, stored in the provided tables, '
+                                                 'training set, validation set and a test set, stored in the provided tables, '
                                                  'and evaluates the performance of a fully connected '
                                                  'feed forward neural network.')
     parser.add_argument('train_table_name')
-    parser.add_argument('validation_table_name')
+    parser.add_argument('val_table_name')
     parser.add_argument('test_table_name')
     parser.add_argument('--top100_labels', action='store_true', default=False)
     parser.add_argument('--no_gpu', action='store_true', default=False)
     args = parser.parse_args()
 
-    time = strftime("%m%d_%H%M%S", gmtime())
-    root_logger = logging_utils.build_logger('{}_feed_forward.log'.format(time))
-    logger = root_logger.getLogger('feed_forward')
+    db = DatabaseManager()
 
-    logger.info('Program start')
+    start = datetime.datetime.now()
+    time_str = start.strftime("%m%d_%H%M%S")
+    config = vars(args)
+    experiment_id = db.classifier_experiment_create(config, start, 'nnff', args.train_table_name, args.val_table_name, args.test_table_name)
+
+    log_filename = '{}_nnff.log'.format(experiment_id)
+    db.classifier_experiment_insert_log_file(experiment_id, log_filename)
+
+    logger = logging_utils.build_logger(log_filename).getLogger('feed_forward')
+    logger.info('Program start, classifier experiment id = %s', experiment_id)
     logger.info(args)
 
-    logger.info('Building train tensors...')
-    X_train, Y_train = load_X_Y(args.train_table_name)
-    logger.info('Train tensors built')
-
-    logger.info('Building validation tensors...')
-    X_val, Y_val = load_X_Y(args.validation_table_name, validation_set=True)
-    logger.info('Validation tensors built')
+    X_train, Y_train = tensor_loader.load_X_Y(logger, args.train_table_name, args.no_gpu)
+    X_val, Y_val = tensor_loader.load_X_Y(logger, args.val_table_name, args.no_gpu, validation_set=True)
 
     N, D_in = X_train.shape  # Number of samples, number of features.
     if args.top100_labels:  # Dimension of the first and second hidden layers, and dimension of the output vector.
@@ -116,12 +78,13 @@ if __name__ == '__main__':
     learning_rate, decay, momentum = 0.01, 1e-6, 0.9
     optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=decay, momentum=momentum, nesterov=True)
 
-    tb_logger_train = tensorboardX.SummaryWriter(log_dir='../tensorboard_logs/feed_forward_nn_train_' + time)
-    tb_logger_val = tensorboardX.SummaryWriter(log_dir='../tensorboard_logs/feed_forward_nn_val_' + time)
-    metric_logger_train = defaultdict(list)
-    metric_logger_val = defaultdict(list)
+    tb_logger_train = tensorboardX.SummaryWriter(log_dir='../tensorboard_logs/nnff_train_' + str(experiment_id))
+    tb_logger_val = tensorboardX.SummaryWriter(log_dir='../tensorboard_logs/nnff_val_' + str(experiment_id))
+    metrics_train = defaultdict(list)
+    metrics_val = defaultdict(list)
+    metrics_test = defaultdict(list)
 
-    epochs = 200
+    epochs = 1  # TODO move to args.
     for epoch in range(epochs):
         # First of all, train the model using the training set.
         Y_pred_train = model(X_train)
@@ -142,13 +105,24 @@ if __name__ == '__main__':
         tb_logger_train.add_scalar('binary_cross_entropy', loss_train.data[0], epoch + 1)
         tb_logger_val.add_scalar('binary_cross_entropy', loss_val.data[0], epoch + 1)
 
-        metrics_train = compute_metrics_and_log_to_stdout(logger, Y_train.data.numpy(), last_layer_to_predictions(Y_pred_train), tag='train')
-        metrics_val = compute_metrics_and_log_to_stdout(logger, Y_val.data.numpy(), last_layer_to_predictions(Y_pred_val), tag='val')
+        metrics_train_this_epoch = compute_metrics_and_log_to_stdout(logger, Y_train.data.numpy(), last_layer_to_predictions(Y_pred_train), tag='train')
+        metrics_val_this_epoch = compute_metrics_and_log_to_stdout(logger, Y_val.data.numpy(), last_layer_to_predictions(Y_pred_val), tag='val')
 
-        log_metrics(metrics_train, epoch, tb_logger_train, metric_logger_train)
-        log_metrics(metrics_val, epoch, tb_logger_val, metric_logger_val)
+        log_metrics(metrics_train_this_epoch, epoch, metrics_train, tb_logger_train)
+        log_metrics(metrics_val_this_epoch, epoch, metrics_val, tb_logger_val)
 
-    metrics_filename = '../metrics/feed_forward_nn_' + time + '.json'
-    with open(metrics_filename, 'w') as outfile:
-        json.dump(metric_logger_train, outfile)
-    logger.info('Model done. Metrics written to %s', metrics_filename)
+    # Training done. Evaluate classifier using test set.
+    X_test, Y_test = tensor_loader.load_X_Y(logger, args.test_table_name, args.no_gpu, test_set=True)
+    Y_pred_test = model(X_test)
+    loss_test = loss_fn(Y_pred_test, Y_test)
+    logger.info('Loss test = %s', format(loss_test.data[0], '.5f'))
+    log_metrics(compute_metrics_and_log_to_stdout(logger,
+                                                  Y_test.data.numpy(),
+                                                  last_layer_to_predictions(Y_pred_test),
+                                                  tag='test'),
+                0,
+                metrics_test)
+
+    end = datetime.datetime.now()
+    db.classifier_experiment_insert_metrics(experiment_id, metrics_train, metrics_val, metrics_test, end)
+    logger.info('Model done. Metrics written to database')

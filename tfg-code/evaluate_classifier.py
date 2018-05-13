@@ -1,3 +1,5 @@
+import json
+
 import sklearn.metrics
 
 
@@ -20,3 +22,25 @@ def compute_metrics_and_log_to_stdout(logger, Y_true, Y_pred, tag='train'):
                 format(jaccard, '.5f'))
 
     return {'f1score': f1score, 'precision': precision, 'recall': recall, 'subset_accuracy': subset_accuracy, 'jaccard': jaccard}
+
+
+def last_layer_to_predictions(last_layer):
+    """Convert outputs from the last layer of the neural network (real numbers) to binary values using a sigmoid function.
+
+    :param last_layer:
+    :return:
+    """
+    pred = last_layer.data.sigmoid().numpy().copy()
+    pred[pred >= 0.5] = 1
+    pred[pred < 0.5] = 0
+
+    return pred
+
+
+def write_metrics_to_file(metric_logger_train, metric_logger_val, metric_logger_test, base_filename, time):
+    filenames = [base_filename + purpose + time + '.json' for purpose in ['_train_', '_val_', '_test_']]
+    for metrics, filename in zip([metric_logger_train, metric_logger_val, metric_logger_test], filenames):
+        with open(filename, 'w') as outfile:
+            json.dump(metrics, outfile)
+
+    return tuple(filenames)
