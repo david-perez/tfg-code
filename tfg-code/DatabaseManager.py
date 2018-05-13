@@ -1,3 +1,4 @@
+import json
 import os
 from configparser import ConfigParser
 from psycopg2.extensions import AsIs
@@ -179,3 +180,48 @@ class DatabaseManager:
         cur.execute('SELECT * FROM %s ORDER BY subject_id ASC', (AsIs(table_name),))
 
         return cur
+
+    def unique_subject_ids(self, table_name):
+        cur = self.__conn.cursor()
+        cur.execute('SELECT DISTINCT subject_id FROM %s ORDER BY subject_id ASC', (AsIs(table_name),))
+
+        return [row[0] for row in cur.fetchall()]
+
+    def get_bag_of_words_vectors_rnn(self, table_name, first_patient, last_patient):
+        cur = self.__conn.cursor()
+
+        cur.execute("""
+          WITH append_note_in_seq AS (
+          SELECT ROW_NUMBER()
+          OVER (
+            PARTITION BY subject_id
+            ORDER BY chart_date ASC) AS note_in_seq,
+            %s.*
+            FROM %s
+          ) SELECT * FROM append_note_in_seq
+          WHERE %s <= subject_id AND subject_id <= %s
+          ORDER BY subject_id ASC, chart_date ASC
+        """, (AsIs(table_name), AsIs(table_name), first_patient, last_patient))
+
+        return cur
+
+    def vocabulary_experiment_create(self, config, start, comments=''):
+        cur = self.__conn.cursor()
+        cur.execute('INSERT INTO vocabulary_experiments (comments, config, start) VALUES(%s, %s, %s) RETURNING experiment_id',
+                    (comments, json.dumps(config), start))
+        self.__conn.commit()
+
+        experiment_id = cur.fetchone()[0]
+        return experiment_id
+
+    def vocabulary_experiment_insert_log_file(self, experiment_id, log_filename):
+        cur = self.__conn.cursor()
+        cur.execute('UPDATE vocabulary_experiments SET log_filename = %s WHERE experiment_id = %s',
+                    (log_filename, experiment_id))
+        self.__conn.commit()
+
+    def vocabulary_experiment_insert_vocabulary(self, experiment_id, end, vocabulary):
+        cur = self.__conn.cursor()
+        cur.execute('UPDATE vocabulary_experiments SET "end" = %s, vocabulary = %s WHERE experiment_id = %s',
+                    (end, json.dumps(vocabulary), experiment_id))
+        self.__conn.commit()

@@ -1,6 +1,5 @@
 import argparse
-import json
-from time import strftime, gmtime
+import datetime
 
 import numpy as np
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
@@ -69,42 +68,31 @@ class VocabularyGenerator:
         return vocabulary
 
 
-def write_vocabulary_to_file(vocabulary, filename):
-    with open(filename, 'w') as outfile:
-        json.dump(vocabulary, outfile)
-
-
-def get_filename_vocabulary(time, toy_set=None, top100_labels=False):
-    filename = 'serialized_vocabularies/vocabulary_train'
-    if toy_set:
-        filename += '_toy'
-    if top100_labels:
-        filename += '_top100_labels'
-    filename += '_' + time + '.json'
-
-    return filename
-
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Generate vocabulary from corpus.')
     parser.add_argument('--toy_set', nargs='?', const=700, help='how many rows to fetch from the corpus table')
     parser.add_argument('--top100_labels', action='store_true', default=False)
     args = parser.parse_args()
 
-    time = strftime("%m%d_%H%M%S", gmtime())
-    root_logger = logging_utils.build_logger('{}_vocabulary_generator.log'.format(time))
-    logger = root_logger.getLogger('vocabulary_generator')
-
-    logger.info('Program start')
-    logger.info(args)
-
     db = DatabaseManager()
+
+    start = datetime.datetime.now()
+    time_str = start.strftime("%m%d_%H%M%S")
+    config = vars(args)
+    experiment_id = db.vocabulary_experiment_create(config, start)
+
+    log_filename = '{}_vocabulary_generator.log'.format(experiment_id)
+    db.vocabulary_experiment_insert_log_file(experiment_id, log_filename)
+
+    logger = logging_utils.build_logger(log_filename).getLogger('vocabulary_generator')
+    logger.info('Program start, vocabulary experiment id = %s', experiment_id)
+    logger.info(config)
+
     _, corpus, _ = db.get_corpus(toy_set=args.toy_set, top100_labels=args.top100_labels)
 
     vocabulary_generator = VocabularyGenerator(corpus, logger)
     vocabulary = vocabulary_generator.build_vocabulary()
 
-    filename = get_filename_vocabulary(time, args.toy_set, args.top100_labels)
-    write_vocabulary_to_file(vocabulary, filename)
-    logger.info('Vocabulary written to {}'.format(filename))
-    print(filename)
+    end = datetime.datetime.now()
+    db.vocabulary_experiment_insert_vocabulary(experiment_id, end, vocabulary)
+    logger.info('Vocabulary inserted into database')
