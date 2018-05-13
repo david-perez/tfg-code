@@ -92,9 +92,9 @@ def get_table_name(args, experiment_id):
         ret += 'toy_'
 
     if args.top100_labels:
-        ret += 'top10_'
+        ret += 'top100'
     else:
-        ret += 'top100_'
+        ret += 'top10_'
 
     if args.for_rnn:
         ret += 'rnn_'
