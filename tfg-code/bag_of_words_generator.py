@@ -5,8 +5,8 @@ from scipy.sparse import csr_matrix
 from sklearn.feature_extraction.text import CountVectorizer
 
 import logging_utils
-from DatabaseManager import DatabaseManager
-from SpacyAnalyzer import SpacyAnalyzer
+from database_manager import DatabaseManager
+from spacy_analyzer import SpacyAnalyzer
 
 
 class BagOfWordsGenerator:

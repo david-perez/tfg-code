@@ -10,7 +10,7 @@ Execute this script from the project root folder.
 
 sys.path.append('tfg-code/')
 
-from DatabaseManager import DatabaseManager
+from database_manager import DatabaseManager
 
 db = DatabaseManager()
 codes = db.get_icd9_codes()

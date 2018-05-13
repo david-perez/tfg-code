@@ -5,8 +5,8 @@ import numpy as np
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 
 import logging_utils
-from DatabaseManager import DatabaseManager
-from SpacyAnalyzer import SpacyAnalyzer
+from database_manager import DatabaseManager
+from spacy_analyzer import SpacyAnalyzer
 
 
 class VocabularyGenerator:

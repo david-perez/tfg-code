@@ -1,4 +1,4 @@
-from DatabaseManager import DatabaseManager
+from database_manager import DatabaseManager
 
 
 def get_icd9_codes_map(top100_labels=False):

@@ -1,6 +1,6 @@
 import torch
 
-import BagOfWordsVectorsLoader
+import bag_of_words_loader
 
 
 def print_cuda_info(logger):
@@ -31,12 +31,12 @@ def load_X_Y_rnn(logger, table_name, chunk, total_chunks, no_gpu=False, top100_l
 
     dtype = determine_tensor_type(logger, no_gpu)
 
-    data, n_patients, n_features, Y = BagOfWordsVectorsLoader.load_X_Y_rnn(table_name,
-                                                                           chunk,
-                                                                           total_chunks=total_chunks,
-                                                                           top100_labels=top100_labels,
-                                                                           validation_set=validation_set,
-                                                                           test_set=test_set)
+    data, n_patients, n_features, Y = bag_of_words_loader.load_X_Y_rnn(table_name,
+                                                                       chunk,
+                                                                       total_chunks=total_chunks,
+                                                                       top100_labels=top100_labels,
+                                                                       validation_set=validation_set,
+                                                                       test_set=test_set)
     logger.info('[%s]   Patients: %s, Features: %s', table_name, n_patients, n_features)
     logger.info('[%s]   Bag of words vectors loaded', table_name)
     X = torch.FloatTensor(data)
@@ -60,10 +60,10 @@ def load_X_Y(logger, table_name, no_gpu=False, top100_labels=False, validation_s
 
     dtype = determine_tensor_type(logger, no_gpu)
 
-    data, row_ind, col_ind, n_patients, n_features, Y = BagOfWordsVectorsLoader.load_X_Y_nn(table_name,
-                                                                                            top100_labels=top100_labels,
-                                                                                            validation_set=validation_set,
-                                                                                            test_set=test_set)
+    data, row_ind, col_ind, n_patients, n_features, Y = bag_of_words_loader.load_X_Y_nn(table_name,
+                                                                                        top100_labels=top100_labels,
+                                                                                        validation_set=validation_set,
+                                                                                        test_set=test_set)
     logger.info('[%s]   Patients: %s, Features: %s', table_name, n_patients, n_features)
     logger.info('[%s]   Bag of words vectors loaded', table_name)
     indices = torch.LongTensor([row_ind, col_ind])

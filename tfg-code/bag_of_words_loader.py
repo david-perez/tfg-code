@@ -3,7 +3,7 @@ import pickle
 import numpy as np
 from scipy.sparse import csr_matrix
 
-from DatabaseManager import DatabaseManager
+from database_manager import DatabaseManager
 from utils import get_icd9_codes_map
 
 

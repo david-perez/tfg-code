@@ -7,8 +7,8 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import normalize
 
 import logging_utils
-from BagOfWordsVectorsLoader import load_X_Y
-from DatabaseManager import DatabaseManager
+from bag_of_words_loader import load_X_Y
+from database_manager import DatabaseManager
 from evaluate_classifier import compute_metrics_and_log_to_stdout
 
 

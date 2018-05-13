@@ -8,8 +8,8 @@ import torch
 
 import logging_utils
 import tensor_loader
-from DatabaseManager import DatabaseManager
-from RNNModel import RNNModel
+from database_manager import DatabaseManager
+from rnn_model import RNNModel
 from evaluate_classifier import compute_metrics_and_log_to_stdout, last_layer_to_predictions
 
 
