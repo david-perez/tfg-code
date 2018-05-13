@@ -1,5 +1,5 @@
 import argparse
-from time import strftime, gmtime
+import datetime
 
 import numpy as np
 
@@ -8,6 +8,7 @@ from sklearn.preprocessing import normalize
 
 import logging_utils
 from BagOfWordsVectorsLoader import load_X_Y
+from DatabaseManager import DatabaseManager
 from evaluate_classifier import compute_metrics_and_log_to_stdout
 
 
@@ -43,11 +44,18 @@ if __name__ == '__main__':
     parser.add_argument('--dont_normalize_input_features', action='store_true', default=False)
     args = parser.parse_args()
 
-    time = strftime("%m%d_%H%M%S", gmtime())
-    root_logger = logging_utils.build_logger('{}_logistic_regression.log'.format(time))
-    logger = root_logger.getLogger('logistic_regression')
+    db = DatabaseManager()
 
-    logger.info('Program start')
+    start = datetime.datetime.now()
+    time_str = start.strftime("%m%d_%H%M%S")
+    config = vars(args)
+    experiment_id = db.classifier_experiment_create(config, start, 'logistic_regression', args.train_table_name, None, args.test_table_name)
+
+    log_filename = '{}_logistic_regression.log'.format(experiment_id)
+    db.classifier_experiment_insert_log_file(experiment_id, log_filename)
+
+    logger = logging_utils.build_logger(log_filename).getLogger('logistic_regression')
+    logger.info('Program start, classifier experiment id = %s', experiment_id)
     logger.info(args)
 
     X_train, Y_train = load_X_Y(args.train_table_name, top100_labels=args.top100_labels)
@@ -65,7 +73,7 @@ if __name__ == '__main__':
     actual_matrix_train = np.column_stack(Y_train)  # Stack vertically the elements of the Y_train list.
 
     logger.info('Computing metrics for training set')
-    compute_metrics_and_log_to_stdout(logger, actual_matrix_train, predicted_matrix_train)
+    metrics_train = compute_metrics_and_log_to_stdout(logger, actual_matrix_train, predicted_matrix_train)
 
     X_test, Y_test = load_X_Y(args.test_table_name, top100_labels=args.top100_labels, test_set=True, n_features=n_features)
     logger.info('X_test, Y_test loaded')
@@ -79,4 +87,8 @@ if __name__ == '__main__':
     actual_matrix_test = np.column_stack(Y_test)
 
     logger.info('Computing metrics for test set')
-    compute_metrics_and_log_to_stdout(logger, actual_matrix_test, predicted_matrix_test)
+    metrics_test = compute_metrics_and_log_to_stdout(logger, actual_matrix_test, predicted_matrix_test)
+
+    end = datetime.datetime.now()
+    db.classifier_experiment_insert_metrics(experiment_id, metrics_train, None, metrics_test, end)
+    logger.info('Model done. Metrics written to database')
