@@ -35,12 +35,3 @@ def last_layer_to_predictions(last_layer):
     pred[pred < 0.5] = 0
 
     return pred
-
-
-def write_metrics_to_file(metric_logger_train, metric_logger_val, metric_logger_test, base_filename, time):
-    filenames = [base_filename + purpose + time + '.json' for purpose in ['_train_', '_val_', '_test_']]
-    for metrics, filename in zip([metric_logger_train, metric_logger_val, metric_logger_test], filenames):
-        with open(filename, 'w') as outfile:
-            json.dump(metrics, outfile)
-
-    return tuple(filenames)

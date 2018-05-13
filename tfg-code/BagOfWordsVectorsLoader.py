@@ -67,7 +67,7 @@ def load_X_Y(table_name, top100_labels=False, validation_set=False, test_set=Fal
         return csr_matrix((data, (row_ind, col_ind))), Y_list
 
 
-def load_X_Y_nn(table_name, top100_labels=False, validation_set=False, test_set=False, n_features=None):
+def load_X_Y_nn(table_name, top100_labels=False, validation_set=False, test_set=False):
     db = DatabaseManager()
     cur = db.get_bag_of_words_vectors(table_name)
     n_patients = cur.rowcount
@@ -79,8 +79,7 @@ def load_X_Y_nn(table_name, top100_labels=False, validation_set=False, test_set=
     data = []
     row_ind = []
     col_ind = []
-    cnt = 0
-    for subject_id, _, bag_of_words_binary_vector_col_ind, bag_of_words_binary_vector_data in cur:
+    for cnt, (subject_id, _, bag_of_words_binary_vector_col_ind, bag_of_words_binary_vector_data) in enumerate(cur):
         bag_of_words_vector_col_ind = pickle.loads(bag_of_words_binary_vector_col_ind)
         bag_of_words_vector_data = pickle.loads(bag_of_words_binary_vector_data)
 
@@ -94,6 +93,44 @@ def load_X_Y_nn(table_name, top100_labels=False, validation_set=False, test_set=
             idx = icd9_codes_map[icd9_code]
             Y[cnt][idx] = 1
 
-        cnt += 1
+    return data, row_ind, col_ind, n_patients, 40000, Y  # TODO
 
-    return data, row_ind, col_ind, n_patients, 40000, Y # TODO
+
+def load_X_Y_rnn(table_name, chunk_idx, total_chunks, top100_labels=False, validation_set=False, test_set=False):
+    db = DatabaseManager()
+
+    subject_ids = db.unique_subject_ids(table_name)
+    chunked = np.array_split(np.array(subject_ids), total_chunks)
+    subject_id_chunk = chunked[chunk_idx]
+    m_subject_id_to_idx = dict()
+    for i, subject_id in enumerate(subject_id_chunk):
+        m_subject_id_to_idx[subject_id] = i
+
+    n_patients = subject_id_chunk.shape[0]
+
+    Y = np.zeros((n_patients, 100 if top100_labels else 10))
+
+    icd9_codes_map = get_icd9_codes_map(top100_labels=top100_labels)
+
+    first_patient, last_patient = subject_id_chunk[0].item(), subject_id_chunk[-1].item()
+
+    seq_length = 20  # TODO
+    n_features = 40000  # TODO
+    ret = np.zeros((n_patients, seq_length, n_features))
+
+    cur = db.get_bag_of_words_vectors_rnn(table_name, first_patient, last_patient)
+
+    for note_in_seq, row_id, subject_id, chart_date, bag_of_words_binary_vector_col_ind, bag_of_words_binary_vector_data in cur:
+        bag_of_words_vector_col_ind = pickle.loads(bag_of_words_binary_vector_col_ind)
+        bag_of_words_vector_data = pickle.loads(bag_of_words_binary_vector_data)
+
+        for col_ind, data in zip(bag_of_words_vector_col_ind, bag_of_words_vector_data):
+            ret[m_subject_id_to_idx[subject_id]][note_in_seq - 1][col_ind] = data
+
+        # Get the icd9 codes of the diseases this subject_id has.
+        diagnoses = db.get_icd9_codes(subject_id=subject_id, validation_set=validation_set, test_set=test_set)
+        for icd9_code in diagnoses:
+            idx = icd9_codes_map[icd9_code]
+            Y[m_subject_id_to_idx[subject_id]][idx] = 1
+
+    return ret, n_patients, n_features, Y
