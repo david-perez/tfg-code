@@ -33,14 +33,15 @@ in a file named `database.ini` (see the example file `database.ini.example`).
 
 All scripts must be run from the tfg-code directory.
 
-`VocabularyGenerator.py` generates the vocabulary from the corpora in the training set. It outputs a json file containing
-a list of words to the `serialized_vocabularies` directory.
+`vocabulary_generator.py` generates the vocabulary from the corpora in the training set. It outputs a json file containing
+a list of words that is serialized to the `vocabulary_experiments` table.
 
-`BagOfWordsGenerator.py` generates bag of words for each patient in the training set or in the test set, using a provided
-vocabulary. It creates a table in the database containing the serialized (in binary) bag if words vectors for each patient.
-The script outputs the name of the table that is created.
+`bag_of_words_generator.py` generates bag of words for each patient in the training set or in the test set, using a provided
+vocabulary. It creates a table in the database containing the serialized (in binary) bag of words vectors for each patient.
+For RNNs, it creates bag of words vectors for each medical note. Experiment results are output to the `bag_of_words_generator_experiments`
+table.
 
-When running models that log to TensorBoard, ensure TensorBoard is run using
+When running models that log to TensorBoard (`feed_forward_nn.py` and `rnn.py`), ensure TensorBoard is run using
 
 ```
 tensorboard --logdir=tensorboard_logs/
@@ -48,21 +49,15 @@ tensorboard --logdir=tensorboard_logs/
 
 ### Models
 
-`LogisticRegression.py` reads bag of words vectors from a training set and a test set, stored in the provided tables,
+`logistic_regression.py` reads bag of words vectors from a training set and a test set, stored in the provided tables,
 and evaluates the performance of a collection of logistic regression classifiers, one for each ICD9 label.
 
-## Example pipeline
+`feed_forward_nn.py` and `rnn.py` run neural network models using bag of words vectors from tables in the database
+provided as arguments to the program.
 
-The following is an example shell file that shows how the vocabulary generator, bag of words generator and a
-classification model (logistic regression) can be used together.
+Experiment metrics are stored in the `classifier_experiments` table.
 
-```
-#!/bin/bash
+All log files are stored in the `logs` directory.
 
-vocabulary_filename=$(python VocabularyGenerator.py --toy_set)
-table_name_train=$(python BagOfWordsGenerator.py $vocabulary_filename --toy_set | tail -1)
-table_name_test=$(python BagOfWordsGenerator.py $vocabulary_filename --toy_set --test_set | tail -1)
-
-python LogisticRegression.py $table_name_train $table_name_test
-
-```
+Use the option `--toy_set` to try out the system with a reduced dataset. All program arguments and flags can be displayed
+passing the `--help` option to the scripts.
