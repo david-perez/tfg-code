@@ -86,7 +86,7 @@ if __name__ == '__main__':
     actual_matrix_test = np.column_stack(Y_test)
 
     logger.info('Computing metrics for test set')
-    metrics_test = compute_metrics_and_log_to_stdout(logger, actual_matrix_test, predicted_matrix_test)
+    metrics_test = compute_metrics_and_log_to_stdout(logger, actual_matrix_test, predicted_matrix_test, tag='test')
 
     end = datetime.datetime.now()
     db.classifier_experiment_insert_metrics(experiment_id, metrics_train, None, metrics_test, end)
