@@ -10,7 +10,7 @@ def print_cuda_info(logger):
 
 def determine_tensor_type(logger, no_gpu):
     if not no_gpu:
-        print_cuda_info()
+        print_cuda_info(logger)
         logger.info('Running on GPU')
         dtype = torch.cuda.FloatTensor
     else:
