@@ -55,7 +55,7 @@ if __name__ == '__main__':
 
     # We can't fit all of the notes into memory. Split the patients into chunks.
     # Ensure 1 < (number of patients / total_chunks).
-    total_chunks = 3  # TODO move to program args.
+    total_chunks = 20  # TODO move to program args.
 
     # Load the first chunk to get number of input features.
     X_train, Y_train = tensor_loader.load_X_Y_rnn(logger, args.train_table_name, chunk=0, total_chunks=total_chunks, no_gpu=args.no_gpu)
@@ -109,8 +109,8 @@ if __name__ == '__main__':
             tb_logger_train.add_scalar('binary_cross_entropy', loss_train.data[0], chunk * epochs + epoch + 1)
             tb_logger_val.add_scalar('binary_cross_entropy', loss_val.data[0], chunk * epochs + epoch + 1)
 
-            metrics_train_this_epoch = compute_metrics_and_log_to_stdout(logger, Y_train.data.numpy(), last_layer_to_predictions(Y_pred_train), tag='train')
-            metrics_val_this_epoch = compute_metrics_and_log_to_stdout(logger, Y_val.data.numpy(), last_layer_to_predictions(Y_pred_val), tag='val')
+            metrics_train_this_epoch = compute_metrics_and_log_to_stdout(logger, Y_train.cpu().data.numpy(), last_layer_to_predictions(Y_pred_train), tag='train')
+            metrics_val_this_epoch = compute_metrics_and_log_to_stdout(logger, Y_val.cpu().data.numpy(), last_layer_to_predictions(Y_pred_val), tag='val')
 
             log_metrics(metrics_train_this_epoch, chunk, epoch, metrics_train, tb_logger=tb_logger_train)
             log_metrics(metrics_val_this_epoch, chunk, epoch, metrics_val, tb_logger=tb_logger_val)
@@ -134,9 +134,9 @@ if __name__ == '__main__':
     Y_pred_test = np.vstack(tuple(Y_pred_test_list))
 
     log_metrics(compute_metrics_and_log_to_stdout(logger,
-                                                     Y_test,
-                                                     last_layer_to_predictions(torch.autograd.Variable(torch.from_numpy(Y_pred_test))),
-                                                     tag='test'),
+                                                  Y_test,
+                                                  last_layer_to_predictions(torch.autograd.Variable(torch.from_numpy(Y_pred_test))),
+                                                  tag='test'),
                 0,
                 0,
                 metrics_test)

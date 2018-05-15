@@ -39,7 +39,7 @@ def load_X_Y_rnn(logger, table_name, chunk, total_chunks, no_gpu=False, top100_l
                                                                        test_set=test_set)
     logger.info('[%s]   Patients: %s, Features: %s', table_name, n_patients, n_features)
     logger.info('[%s]   Bag of words vectors loaded', table_name)
-    X = torch.FloatTensor(data)
+    X = torch.FloatTensor(data).type(dtype)
     logger.info('[%s]   X tensor built', table_name)
     Y = torch.FloatTensor(Y).type(dtype)  # BCEWithLogitsLoss requires a FloatTensor.
     logger.info('[%s]   Y tensor built', table_name)
