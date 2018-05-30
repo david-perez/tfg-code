@@ -260,3 +260,13 @@ class DatabaseManager:
             WHERE experiment_id = %s
         """, (json.dumps(metrics_train), json.dumps(metrics_val), json.dumps(metrics_test), end, experiment_id))
         self.__conn.commit()
+
+    def get_patients_with_number_icd9_codes(self):
+        cur = self.__conn.cursor()
+        cur.execute('SELECT subject_id, COUNT(DISTINCT icd9_code) AS cnt FROM diagnoses_icd GROUP BY subject_id ORDER BY cnt DESC')
+        return cur
+
+    def get_icd9_codes_distribution(self):
+        cur = self.__conn.cursor()
+        cur.execute('SELECT icd9_code, COUNT(icd9_code) AS cnt FROM diagnoses_icd GROUP BY icd9_code ORDER BY cnt DESC')
+        return cur
