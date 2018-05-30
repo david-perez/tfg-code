@@ -105,8 +105,8 @@ if __name__ == '__main__':
         tb_logger_train.add_scalar('binary_cross_entropy', loss_train.data[0], epoch + 1)
         tb_logger_val.add_scalar('binary_cross_entropy', loss_val.data[0], epoch + 1)
 
-        metrics_train_this_epoch = compute_metrics_and_log_to_stdout(logger, Y_train.data.numpy(), last_layer_to_predictions(Y_pred_train), tag='train')
-        metrics_val_this_epoch = compute_metrics_and_log_to_stdout(logger, Y_val.data.numpy(), last_layer_to_predictions(Y_pred_val), tag='val')
+        metrics_train_this_epoch = compute_metrics_and_log_to_stdout(logger, Y_train.cpu().data.numpy(), last_layer_to_predictions(Y_pred_train), tag='train')
+        metrics_val_this_epoch = compute_metrics_and_log_to_stdout(logger, Y_val.cpu().data.numpy(), last_layer_to_predictions(Y_pred_val), tag='val')
 
         log_metrics(metrics_train_this_epoch, epoch, metrics_train, tb_logger_train)
         log_metrics(metrics_val_this_epoch, epoch, metrics_val, tb_logger_val)
@@ -117,7 +117,7 @@ if __name__ == '__main__':
     loss_test = loss_fn(Y_pred_test, Y_test)
     logger.info('Loss test = %s', format(loss_test.data[0], '.5f'))
     log_metrics(compute_metrics_and_log_to_stdout(logger,
-                                                  Y_test.data.numpy(),
+                                                  Y_test.cpu().data.numpy(),
                                                   last_layer_to_predictions(Y_pred_test),
                                                   tag='test'),
                 0,

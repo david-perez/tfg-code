@@ -28,7 +28,7 @@ def last_layer_to_predictions(last_layer):
     :param last_layer:
     :return:
     """
-    pred = last_layer.data.sigmoid().numpy().copy()
+    pred = last_layer.cpu().data.sigmoid().numpy().copy()
     pred[pred >= 0.5] = 1
     pred[pred < 0.5] = 0
 
