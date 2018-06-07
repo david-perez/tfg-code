@@ -32,7 +32,7 @@ in a file named `database.ini` (see the example file `database.ini.example`).
 
 ## Usage
 
-All scripts must be run from the tfg-code directory.
+All scripts must be run from the `tfg-code` directory.
 
 `vocabulary_generator.py` generates the vocabulary from the corpora in the training set. It outputs a json file containing
 a list of words that is serialized to the `vocabulary_experiments` table.
@@ -51,7 +51,7 @@ tensorboard --logdir=tensorboard_logs/
 ### Models
 
 `logistic_regression.py` reads bag of words vectors from a training set and a test set, stored in the provided tables,
-and evaluates the performance of a collection of logistic regression classifiers, one for each ICD9 label.
+and evaluates the performance of a collection of logistic regression classifiers, one for each ICD-9 label.
 
 `feed_forward_nn.py` and `rnn.py` run neural network models using bag of words vectors from tables in the database
 provided as arguments to the program.
