@@ -270,3 +270,13 @@ class DatabaseManager:
         cur = self.__conn.cursor()
         cur.execute('SELECT icd9_code, COUNT(icd9_code) AS cnt FROM diagnoses_icd GROUP BY icd9_code ORDER BY cnt DESC')
         return cur
+
+    def get_patients_with_number_of_notes_with_top10_labels(self):
+        cur = self.__conn.cursor()
+        cur.execute('SELECT subject_id, COUNT(*) AS cnt FROM noteevents_from_patients_with_top10_labels GROUP BY subject_id ORDER BY cnt DESC')
+        return cur
+
+    def get_corpus_all_splits(self):
+        cur = self.__conn.cursor()
+        cur.execute('SELECT text FROM filtered_pruned_dataset_top10_labels;')
+        return cur
