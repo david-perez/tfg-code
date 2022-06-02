@@ -9,7 +9,7 @@ dill==0.2.7.1
 ftfy==4.4.3
 gast==0.2.0
 grpcio==1.11.0
-html5lib==0.9999999
+html5lib==0.99999999
 idna==2.6
 Markdown==2.6.11
 msgpack-numpy==0.4.1
