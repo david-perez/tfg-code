@@ -15,7 +15,7 @@ Markdown==2.6.11
 msgpack-numpy==0.4.1
 msgpack-python==0.5.4
 murmurhash==0.28.0
-numpy==1.14.2
+numpy==1.22.0
 pathlib==1.0.1
 Pillow==5.1.0
 plac==0.9.6
